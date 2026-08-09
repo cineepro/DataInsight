@@ -1,29 +1,19 @@
-// apps/studio/src/routes/AppRouter.tsx
+//apps/studio/src/routes/AppRouter.tsx
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { getCurrentSession, type AdminSession } from '../api/auth';
+
+import Layout from '../components/Layout';
+import LoginPage from '../features/auth/pages/LoginPage';
+import StudioPage from '../features/studio/pages/StudioPage';
+import TenantsAdminPage from '../features/tenants/pages/TenantsAdminPage';
+import ReportsHistoryPage from '../features/studio/reports/pages/ReportsHistoryPage';
 
 interface AuthState {
   session: AdminSession | null;
   loading: boolean;
 }
 
-// --- Placeholders temporaires --------------------------------------------
-// Ces composants seront remplacés par les vraies pages (features/auth,
-// features/tenants, features/studio, features/reports) dans la prochaine étape.
-function LoginPagePlaceholder() {
-  return <div className="p-8">Page de connexion — à brancher (features/auth/pages/LoginPage.tsx)</div>;
-}
-function StudioPagePlaceholder() {
-  return <div className="p-8">Écran d'analyse — à brancher (features/studio/pages/StudioPage.tsx)</div>;
-}
-// ---------------------------------------------------------------------------
-
-/**
- * Protège toutes les routes internes : vérifie la session ET l'appartenance
- * à Team "admins" ou "analysts" via getCurrentSession(). Redirige vers /login
- * si l'utilisateur n'est pas authentifié ou n'a pas la bonne Team.
- */
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const [auth, setAuth] = useState<AuthState>({ session: null, loading: true });
 
@@ -48,15 +38,21 @@ export default function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<LoginPagePlaceholder />} />
+        <Route path="/login" element={<LoginPage />} />
+
         <Route
-          path="/*"
           element={
             <ProtectedRoute>
-              <StudioPagePlaceholder />
+              <Layout />
             </ProtectedRoute>
           }
-        />
+        >
+          <Route path="/" element={<StudioPage />} />
+          <Route path="/tenants" element={<TenantsAdminPage />} />
+          <Route path="/reports" element={<ReportsHistoryPage />} />
+        </Route>
+
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );

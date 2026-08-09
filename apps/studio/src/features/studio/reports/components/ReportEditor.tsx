@@ -12,8 +12,6 @@ interface ReportEditorProps {
   onUpdated: (report: WeeklyReport) => void;
 }
 
-// Permet de relire/republier un rapport déjà généré (ex: correction d'une
-// directive après publication, ou publication tardive d'un brouillon oublié).
 export default function ReportEditor({ report, onUpdated }: ReportEditorProps) {
   const [publishing, setPublishing] = useState(false);
 

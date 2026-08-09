@@ -36,7 +36,7 @@ export default function ReportsHistoryPage() {
     const tenant = tenants.find((t) => t.$id === tenantId);
     if (!tenant) return;
     setLoading(true);
-    listReportsForTenant(tenant.slug).then((data: WeeklyReport[]) => {
+    listReportsForTenant(tenant.slug).then((data) => {
       setReports(data);
       setLoading(false);
     });
@@ -55,7 +55,7 @@ export default function ReportsHistoryPage() {
           <Select
             label="Catégorie"
             value={category}
-            onChange={(v: string) => {
+            onChange={(v) => {
               setCategory(v as TenantCategory);
               setTenantId('');
             }}
@@ -67,7 +67,7 @@ export default function ReportsHistoryPage() {
           <Select
             label="Structure"
             value={tenantId}
-            onChange={(v: string) => setTenantId(v)}
+            onChange={setTenantId}
             options={tenants.map((t) => ({ label: t.name, value: t.$id }))}
             placeholder="Choisir une structure"
           />

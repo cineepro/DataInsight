@@ -1,3 +1,4 @@
+//apps/studio/src/api/reports.ts
 import { ID, Query } from 'appwrite';
 import { databases, functions } from './appwrite';
 import { DATABASE_ID, COLLECTIONS } from '@datainsight/shared';
