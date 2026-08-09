@@ -1,0 +1,14 @@
+{
+  "functionId": "get-tenant-public-info",
+  "name": "get-tenant-public-info",
+  "runtime": "node-18.0",
+  "execute": ["any"],
+  "events": [],
+  "schedule": "",
+  "timeout": 15,
+  "enabled": true,
+  "logging": true,
+  "entrypoint": "dist/main.js",
+  "commands": "npm install && npm run build",
+  "path": "functions/get-tenant-public-info"
+}
