@@ -1,6 +1,6 @@
 [build]
   command = "npm run build --workspace=apps/studio"
-  publish = "dist"
+  publish = "apps/studio/dist"
 
 [build.environment]
   NODE_VERSION = "20"

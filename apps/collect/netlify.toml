@@ -1,6 +1,6 @@
 [build]
   command = "npm run build --workspace=apps/collect"
-  publish = "dist"
+  publish = "apps/collect/dist"
 
 [build.environment]
   NODE_VERSION = "20"
