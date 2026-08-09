@@ -1,0 +1,14 @@
+{
+  "name": "asillia-datainsight",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:collect": "npm run dev --workspace=apps/collect",
+    "dev:studio": "npm run dev --workspace=apps/studio",
+    "build:collect": "npm run build --workspace=apps/collect",
+    "build:studio": "npm run build --workspace=apps/studio"
+  }
+}
