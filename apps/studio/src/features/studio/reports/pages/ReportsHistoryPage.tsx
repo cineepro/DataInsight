@@ -1,9 +1,9 @@
 //apps/studio/src/features/studio/reports/pages/ReportsHistoryPage.tsx
 import { useEffect, useState } from 'react';
 import type { Tenant, TenantCategory, WeeklyReport } from '@datainsight/shared';
-import { listTenants } from '../../../api/tenants';
-import { listReportsForTenant } from '../../../api/reports';
-import Select from '../../../components/ui/Select';
+import { listTenants } from '../../../../api/tenants';
+import { listReportsForTenant } from '../../../../api/reports';
+import Select from '../../../../components/ui/Select';
 import ReportEditor from '../components/ReportEditor';
 
 const CATEGORY_OPTIONS = [
@@ -36,7 +36,7 @@ export default function ReportsHistoryPage() {
     const tenant = tenants.find((t) => t.$id === tenantId);
     if (!tenant) return;
     setLoading(true);
-    listReportsForTenant(tenant.slug).then((data) => {
+    listReportsForTenant(tenant.slug).then((data: WeeklyReport[]) => {
       setReports(data);
       setLoading(false);
     });
@@ -55,7 +55,7 @@ export default function ReportsHistoryPage() {
           <Select
             label="Catégorie"
             value={category}
-            onChange={(v) => {
+            onChange={(v: string) => {
               setCategory(v as TenantCategory);
               setTenantId('');
             }}
@@ -67,7 +67,7 @@ export default function ReportsHistoryPage() {
           <Select
             label="Structure"
             value={tenantId}
-            onChange={setTenantId}
+            onChange={(v: string) => setTenantId(v)}
             options={tenants.map((t) => ({ label: t.name, value: t.$id }))}
             placeholder="Choisir une structure"
           />

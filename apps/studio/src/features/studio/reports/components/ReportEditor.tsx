@@ -1,11 +1,11 @@
 //apps/studio/src/features/studio/reports/components/ReportEditor.tsx
 import { useState } from 'react';
 import type { WeeklyReport } from '@datainsight/shared';
-import { publishReport } from '../../../api/reports';
-import { getCurrentSession } from '../../../api/auth';
-import Card from '../../../components/ui/Card';
-import Badge from '../../../components/ui/Badge';
-import Button from '../../../components/ui/Button';
+import { publishReport } from '../../../../api/reports';
+import { getCurrentSession } from '../../../../api/auth';
+import Card from '../../../../components/ui/Card';
+import Badge from '../../../../components/ui/Badge';
+import Button from '../../../../components/ui/Button';
 
 interface ReportEditorProps {
   report: WeeklyReport;

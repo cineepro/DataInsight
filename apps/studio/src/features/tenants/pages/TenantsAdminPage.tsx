@@ -1,4 +1,3 @@
-//apps/studio/src/features/tenants/pages/TenantsAdminPage.tsx
 import { useEffect, useState } from 'react';
 import type { Tenant } from '@datainsight/shared';
 import { listTenants } from '../../../api/tenants';
@@ -23,7 +22,7 @@ export default function TenantsAdminPage() {
     refresh();
   }, []);
 
-  function handleSaved(tenant: Tenant) {
+  function handleSaved() {
     setShowForm(false);
     setEditingTenant(undefined);
     refresh();
