@@ -1,6 +1,5 @@
-// apps/studio/src/api/reports.ts
 import { ID, Query } from 'appwrite';
-import { databases } from './appwrite';
+import { databases, functions } from './appwrite';
 import { DATABASE_ID, COLLECTIONS } from '@datainsight/shared';
 import type { WeeklyReport } from '@datainsight/shared';
 
@@ -21,6 +20,8 @@ export async function getReportForWeek(
 /**
  * Crée ou met à jour le brouillon du rapport pour cette tenant+semaine.
  * S'appuie sur l'index unique tenant_id+year+week_number pour éviter les doublons.
+ * Reste en appel direct SDK client : c'est une opération de brouillon
+ * fréquente, sans notification, pas besoin de passer par une Function.
  */
 export async function saveDraftReport(
   input: Omit<WeeklyReport, '$id' | 'created_at' | 'status'>
@@ -43,13 +44,38 @@ export async function saveDraftReport(
   return created as unknown as WeeklyReport;
 }
 
+interface PublishFunctionResponse {
+  success: boolean;
+  report?: WeeklyReport;
+  error?: string;
+}
+
+/**
+ * Publication centralisée via la Appwrite Function publish-weekly-report :
+ * la Function marque le rapport PUBLISHED ET envoie la notification email
+ * au tenant en une seule opération atomique côté serveur. Remplace l'ancien
+ * appel direct databases.updateDocument().
+ */
 export async function publishReport(reportDocId: string, analystId: string): Promise<WeeklyReport> {
-  const updated = await databases.updateDocument(DATABASE_ID, COLLECTIONS.WEEKLY_REPORTS, reportDocId, {
-    status: 'PUBLISHED',
-    analyst_id: analystId,
-    published_at: new Date().toISOString(),
-  });
-  return updated as unknown as WeeklyReport;
+  const functionId = import.meta.env.VITE_FUNCTION_PUBLISH_WEEKLY_REPORT;
+
+  const execution = await functions.createExecution(
+    functionId,
+    JSON.stringify({ reportId: reportDocId, analystId }),
+    false // synchrone : on attend le résultat avant de continuer
+  );
+
+  if (execution.responseStatusCode !== 200) {
+    throw new Error('Erreur lors de la publication du rapport.');
+  }
+
+  const parsed = JSON.parse(execution.responseBody) as PublishFunctionResponse;
+
+  if (!parsed.success || !parsed.report) {
+    throw new Error(parsed.error ?? 'Publication échouée.');
+  }
+
+  return parsed.report;
 }
 
 export async function listReportsForTenant(tenantId: string): Promise<WeeklyReport[]> {

@@ -1,0 +1,11 @@
+[build]
+  command = "corepack enable && pnpm install --frozen-lockfile && pnpm --filter studio run build"
+  publish = "apps/studio/dist"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
