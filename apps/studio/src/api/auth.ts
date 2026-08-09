@@ -1,4 +1,4 @@
-// apps/studio/src/api/auth.ts
+//apps/studio/src/api/auth.ts
 import { account, teams } from './appwrite';
 import { TEAMS } from '@datainsight/shared';
 
@@ -10,11 +10,6 @@ export interface AdminSession {
   isAnalyst: boolean;
 }
 
-/**
- * Connexion réservée aux comptes créés manuellement par un admin
- * (console Appwrite ou script de seed). Aucune inscription libre
- * (self-signup) n'est exposée dans cette app.
- */
 export async function login(email: string, password: string): Promise<AdminSession> {
   await account.createEmailPasswordSession(email, password);
   return getCurrentSession();
@@ -26,16 +21,17 @@ export async function logout(): Promise<void> {
 
 /**
  * Vérifie la session ET l'appartenance à une Team autorisée.
- * Si le compte est authentifié mais n'appartient à aucune Team
- * (admins/analysts), la session est immédiatement détruite.
+ * IMPORTANT : on compare par NOM de Team (t.name), pas par $id.
+ * $id est l'identifiant technique généré par Appwrite (ex: 6a783ee500329933a88e),
+ * totalement différent du nom affiché "admins" dans la console.
  */
 export async function getCurrentSession(): Promise<AdminSession> {
   const user = await account.get();
   const membership = await teams.list();
 
-  const teamIds = membership.teams.map((t) => t.$id);
-  const isAdmin = teamIds.includes(TEAMS.ADMINS);
-  const isAnalyst = teamIds.includes(TEAMS.ANALYSTS);
+  const teamNames = membership.teams.map((t) => t.name);
+  const isAdmin = teamNames.includes(TEAMS.ADMINS);
+  const isAnalyst = teamNames.includes(TEAMS.ANALYSTS);
 
   if (!isAdmin && !isAnalyst) {
     await account.deleteSession('current');
