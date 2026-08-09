@@ -1,12 +1,10 @@
 [build]
-  command = "corepack enable && pnpm install --frozen-lockfile && pnpm --filter collect run build"
-  publish = "apps/collect/dist"
+  command = "npm run build --workspace=apps/collect"
+  publish = "dist"
 
 [build.environment]
-  NODE_VERSION = "18"
+  NODE_VERSION = "20"
 
-# Nécessaire pour une SPA React Router : toute route inconnue (ex: /r/rest_gourmand_01)
-# doit renvoyer index.html, sinon Netlify renvoie une 404 au rechargement de page.
 [[redirects]]
   from = "/*"
   to = "/index.html"

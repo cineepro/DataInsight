@@ -1,9 +1,9 @@
 [build]
-  command = "corepack enable && pnpm install --frozen-lockfile && pnpm --filter studio run build"
-  publish = "apps/studio/dist"
+  command = "npm run build --workspace=apps/studio"
+  publish = "dist"
 
 [build.environment]
-  NODE_VERSION = "18"
+  NODE_VERSION = "20"
 
 [[redirects]]
   from = "/*"
