@@ -1,4 +1,4 @@
-// apps/collect/src/components/ui/RadioGroup.tsx
+//apps/collect/src/components/ui/RadioGroup.tsx
 interface Option {
   label: string;
   value: string;
@@ -16,8 +16,8 @@ interface RadioGroupProps {
 export default function RadioGroup({ label, options, value, onChange, required }: RadioGroupProps) {
   return (
     <fieldset className="flex flex-col gap-2">
-      <legend className="mb-1 text-sm font-medium text-neutral-700">
-        {label} {required && <span className="text-brand-600">*</span>}
+      <legend className="mb-1 text-sm font-medium text-ink">
+        {label} {required && <span className="text-marigold-600">*</span>}
       </legend>
       <div className="grid grid-cols-2 gap-2">
         {options.map((opt) => (
@@ -25,9 +25,9 @@ export default function RadioGroup({ label, options, value, onChange, required }
             key={opt.value}
             type="button"
             onClick={() => onChange(opt.value)}
-            className={`rounded-lg border px-3 py-2 text-sm transition ${
+            className={`rounded-xl border px-3 py-2.5 text-sm transition ${
               value === opt.value
-                ? 'border-brand-600 bg-brand-50 text-brand-600 font-medium'
+                ? 'border-marigold-500 bg-marigold-500/10 font-medium text-ink'
                 : 'border-neutral-200 text-neutral-600'
             }`}
           >

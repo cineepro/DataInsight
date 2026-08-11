@@ -1,7 +1,9 @@
-// apps/collect/src/features/entreprise/EntrepriseForm.tsx
+//apps/collect/src/features/entreprise/EntrepriseForm.tsx
 import { useState } from 'react';
 import { useTenantFromSlug } from '../../hooks/useTenantFromSlug';
 import TenantHeader from '../../components/TenantHeader';
+import TicketCard from '../../components/TicketCard';
+import TicketDivider from '../../components/TicketDivider';
 import StarRating from '../../components/ui/StarRating';
 import TextArea from '../../components/ui/TextArea';
 import ContactFields from '../../components/ui/ContactFields';
@@ -23,12 +25,16 @@ export default function EntrepriseForm() {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   if (loading) {
-    return <div className="flex min-h-screen items-center justify-center text-neutral-400">Chargement...</div>;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-ticket text-sm text-neutral-400">
+        Chargement...
+      </div>
+    );
   }
 
   if (error || !tenant) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-6 text-center text-neutral-500">
+      <div className="flex min-h-screen items-center justify-center bg-ticket p-6 text-center text-sm text-neutral-500">
         {error ?? 'Établissement introuvable.'}
       </div>
     );
@@ -64,43 +70,47 @@ export default function EntrepriseForm() {
   }
 
   return (
-    <div className="mx-auto max-w-md px-4 pb-10">
+    <div className="min-h-screen bg-ticket px-4 py-8">
       <TenantHeader tenant={tenant} />
 
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-neutral-700">
-            Type d'interaction <span className="text-brand-600">*</span>
-          </label>
-          <input
-            type="text"
-            value={interactionType}
-            onChange={(e) => setInteractionType(e.target.value)}
-            placeholder="Ex: Achat, Support, Renseignement..."
-            className="rounded-lg border border-neutral-200 p-3 text-sm focus:border-brand-500 focus:outline-none"
+      <TicketCard>
+        <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-ink">
+              Type d'interaction <span className="text-marigold-600">*</span>
+            </label>
+            <input
+              type="text"
+              value={interactionType}
+              onChange={(e) => setInteractionType(e.target.value)}
+              placeholder="Ex: Achat, Support, Renseignement..."
+              className="rounded-xl border border-neutral-200 p-3 text-sm text-ink focus:border-marigold-500 focus:outline-none"
+            />
+          </div>
+
+          <StarRating
+            label="Votre satisfaction globale"
+            value={satisfactionGlobal}
+            onChange={setSatisfactionGlobal}
           />
+
+          <TextArea
+            label="Une remarque particulière ? (optionnel)"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+          />
+
+          <TicketDivider label="Contact" />
+
+          <ContactFields phone={phone} name={name} onPhoneChange={setPhone} onNameChange={setName} />
+
+          {submitError && <p className="text-sm text-brick">{submitError}</p>}
+
+          <Button onClick={handleSubmit} disabled={!canSubmit} loading={submitting}>
+            Envoyer mon avis
+          </Button>
         </div>
-
-        <StarRating
-          label="Votre satisfaction globale"
-          value={satisfactionGlobal}
-          onChange={setSatisfactionGlobal}
-        />
-
-        <TextArea
-          label="Une remarque particulière ? (optionnel)"
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-        />
-
-        <ContactFields phone={phone} name={name} onPhoneChange={setPhone} onNameChange={setName} />
-
-        {submitError && <p className="text-sm text-red-600">{submitError}</p>}
-
-        <Button onClick={handleSubmit} disabled={!canSubmit} loading={submitting}>
-          Envoyer mon avis
-        </Button>
-      </div>
+      </TicketCard>
     </div>
   );
 }

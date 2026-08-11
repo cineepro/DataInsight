@@ -2,6 +2,8 @@
 import { useState } from 'react';
 import { useTenantFromSlug } from '../../hooks/useTenantFromSlug';
 import TenantHeader from '../../components/TenantHeader';
+import TicketCard from '../../components/TicketCard';
+import TicketDivider from '../../components/TicketDivider';
 import RadioGroup from '../../components/ui/RadioGroup';
 import StarRating from '../../components/ui/StarRating';
 import TextArea from '../../components/ui/TextArea';
@@ -61,12 +63,16 @@ export default function RestaurantForm() {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   if (loading) {
-    return <div className="flex min-h-screen items-center justify-center text-neutral-400">Chargement...</div>;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-ticket text-sm text-neutral-400">
+        Chargement...
+      </div>
+    );
   }
 
   if (error || !tenant) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-6 text-center text-neutral-500">
+      <div className="flex min-h-screen items-center justify-center bg-ticket p-6 text-center text-sm text-neutral-500">
         {error ?? 'Établissement introuvable.'}
       </div>
     );
@@ -107,76 +113,73 @@ export default function RestaurantForm() {
   }
 
   return (
-    <div className="mx-auto max-w-md px-4 pb-10">
+    <div className="min-h-screen bg-ticket px-4 py-8">
       <TenantHeader tenant={tenant} />
 
-      <div className="flex flex-col gap-6">
-        <StarRating
-          label="Votre satisfaction globale"
-          value={satisfactionGlobal}
-          onChange={setSatisfactionGlobal}
-          required
-        />
+      <TicketCard>
+        <div className="flex flex-col gap-5">
+          <StarRating
+            label="Votre satisfaction globale"
+            value={satisfactionGlobal}
+            onChange={setSatisfactionGlobal}
+            required
+          />
 
-        <StarRating
-          label="Qualité du plat / boisson"
-          value={satisfactionPlat}
-          onChange={setSatisfactionPlat}
-        />
+          <RadioGroup
+            label="Temps d'attente"
+            name="wait_time"
+            options={WAIT_TIME_OPTIONS}
+            value={waitTime}
+            onChange={(v) => setWaitTime(v as WaitTimeBucketRestaurant)}
+            required
+          />
 
-        <RadioGroup
-          label="Temps d'attente"
-          name="wait_time"
-          options={WAIT_TIME_OPTIONS}
-          value={waitTime}
-          onChange={(v) => setWaitTime(v as WaitTimeBucketRestaurant)}
-          required
-        />
+          <TicketDivider label="Détails" />
 
-        <RadioGroup
-          label="Zone"
-          name="zone"
-          options={ZONE_OPTIONS}
-          value={zone}
-          onChange={(v) => setZone(v as ZoneRestaurant)}
-        />
+          <StarRating label="Qualité du plat / boisson" value={satisfactionPlat} onChange={setSatisfactionPlat} />
+          <StarRating label="Qualité de l'accueil / service" value={serviceQuality} onChange={setServiceQuality} />
 
-        <StarRating
-          label="Qualité de l'accueil / service"
-          value={serviceQuality}
-          onChange={setServiceQuality}
-        />
+          <RadioGroup
+            label="Zone"
+            name="zone"
+            options={ZONE_OPTIONS}
+            value={zone}
+            onChange={(v) => setZone(v as ZoneRestaurant)}
+          />
 
-        <RadioGroup
-          label="Type de visite"
-          name="visit_type"
-          options={VISIT_TYPE_OPTIONS}
-          value={visitType}
-          onChange={(v) => setVisitType(v as VisitTypeRestaurant)}
-        />
+          <RadioGroup
+            label="Type de visite"
+            name="visit_type"
+            options={VISIT_TYPE_OPTIONS}
+            value={visitType}
+            onChange={(v) => setVisitType(v as VisitTypeRestaurant)}
+          />
 
-        <RadioGroup
-          label="Fréquence de venue"
-          name="visit_frequency"
-          options={FREQUENCY_OPTIONS}
-          value={visitFrequency}
-          onChange={(v) => setVisitFrequency(v as VisitFrequency)}
-        />
+          <RadioGroup
+            label="Fréquence de venue"
+            name="visit_frequency"
+            options={FREQUENCY_OPTIONS}
+            value={visitFrequency}
+            onChange={(v) => setVisitFrequency(v as VisitFrequency)}
+          />
 
-        <TextArea
-          label="Une remarque particulière ? (optionnel)"
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-        />
+          <TextArea
+            label="Une remarque particulière ? (optionnel)"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+          />
 
-        <ContactFields phone={phone} name={name} onPhoneChange={setPhone} onNameChange={setName} />
+          <TicketDivider label="Contact" />
 
-        {submitError && <p className="text-sm text-red-600">{submitError}</p>}
+          <ContactFields phone={phone} name={name} onPhoneChange={setPhone} onNameChange={setName} />
 
-        <Button onClick={handleSubmit} disabled={!canSubmit} loading={submitting}>
-          Envoyer mon avis
-        </Button>
-      </div>
+          {submitError && <p className="text-sm text-brick">{submitError}</p>}
+
+          <Button onClick={handleSubmit} disabled={!canSubmit} loading={submitting}>
+            Envoyer mon avis
+          </Button>
+        </div>
+      </TicketCard>
     </div>
   );
 }

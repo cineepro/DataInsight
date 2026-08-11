@@ -1,7 +1,9 @@
-// apps/collect/src/features/pharmacie/PharmacieForm.tsx
+//apps/collect/src/features/pharmacie/PharmacieForm.tsx
 import { useState } from 'react';
 import { useTenantFromSlug } from '../../hooks/useTenantFromSlug';
 import TenantHeader from '../../components/TenantHeader';
+import TicketCard from '../../components/TicketCard';
+import TicketDivider from '../../components/TicketDivider';
 import RadioGroup from '../../components/ui/RadioGroup';
 import StarRating from '../../components/ui/StarRating';
 import TextArea from '../../components/ui/TextArea';
@@ -51,12 +53,16 @@ export default function PharmacieForm() {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   if (loading) {
-    return <div className="flex min-h-screen items-center justify-center text-neutral-400">Chargement...</div>;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-ticket text-sm text-neutral-400">
+        Chargement...
+      </div>
+    );
   }
 
   if (error || !tenant) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-6 text-center text-neutral-500">
+      <div className="flex min-h-screen items-center justify-center bg-ticket p-6 text-center text-sm text-neutral-500">
         {error ?? 'Établissement introuvable.'}
       </div>
     );
@@ -96,65 +102,71 @@ export default function PharmacieForm() {
   }
 
   return (
-    <div className="mx-auto max-w-md px-4 pb-10">
+    <div className="min-h-screen bg-ticket px-4 py-8">
       <TenantHeader tenant={tenant} />
 
-      <div className="flex flex-col gap-6">
-        <RadioGroup
-          label="Motif de votre visite"
-          name="visit_reason"
-          options={VISIT_REASON_OPTIONS}
-          value={visitReason}
-          onChange={(v) => setVisitReason(v as VisitReasonPharmacie)}
-          required
-        />
-
-        <RadioGroup
-          label="Temps d'attente"
-          name="wait_time"
-          options={WAIT_TIME_OPTIONS}
-          value={waitTime}
-          onChange={(v) => setWaitTime(v as WaitTimeBucketPharmacie)}
-          required
-        />
-
-        <RadioGroup
-          label="Avez-vous trouvé tous vos produits ?"
-          name="availability"
-          options={AVAILABILITY_OPTIONS}
-          value={availability}
-          onChange={(v) => setAvailability(v as ProductAvailability)}
-          required
-        />
-
-        {showMissingProductField && (
-          <TextArea
-            label="Quel produit manquait ?"
-            value={missingProduct}
-            onChange={(e) => setMissingProduct(e.target.value)}
+      <TicketCard>
+        <div className="flex flex-col gap-5">
+          <RadioGroup
+            label="Motif de votre visite"
+            name="visit_reason"
+            options={VISIT_REASON_OPTIONS}
+            value={visitReason}
+            onChange={(v) => setVisitReason(v as VisitReasonPharmacie)}
+            required
           />
-        )}
 
-        <StarRating
-          label="Qualité de l'accueil et du conseil"
-          value={receptionQuality}
-          onChange={setReceptionQuality}
-        />
+          <RadioGroup
+            label="Temps d'attente"
+            name="wait_time"
+            options={WAIT_TIME_OPTIONS}
+            value={waitTime}
+            onChange={(v) => setWaitTime(v as WaitTimeBucketPharmacie)}
+            required
+          />
 
-        <TextArea
-          label="Une remarque particulière ? (optionnel)"
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-        />
+          <TicketDivider label="Détails" />
 
-        <ContactFields phone={phone} name={name} onPhoneChange={setPhone} onNameChange={setName} />
+          <RadioGroup
+            label="Avez-vous trouvé tous vos produits ?"
+            name="availability"
+            options={AVAILABILITY_OPTIONS}
+            value={availability}
+            onChange={(v) => setAvailability(v as ProductAvailability)}
+            required
+          />
 
-        {submitError && <p className="text-sm text-red-600">{submitError}</p>}
+          {showMissingProductField && (
+            <TextArea
+              label="Quel produit manquait ?"
+              value={missingProduct}
+              onChange={(e) => setMissingProduct(e.target.value)}
+            />
+          )}
 
-        <Button onClick={handleSubmit} disabled={!canSubmit} loading={submitting}>
-          Envoyer mon avis
-        </Button>
-      </div>
+          <StarRating
+            label="Qualité de l'accueil et du conseil"
+            value={receptionQuality}
+            onChange={setReceptionQuality}
+          />
+
+          <TextArea
+            label="Une remarque particulière ? (optionnel)"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+          />
+
+          <TicketDivider label="Contact" />
+
+          <ContactFields phone={phone} name={name} onPhoneChange={setPhone} onNameChange={setName} />
+
+          {submitError && <p className="text-sm text-brick">{submitError}</p>}
+
+          <Button onClick={handleSubmit} disabled={!canSubmit} loading={submitting}>
+            Envoyer mon avis
+          </Button>
+        </div>
+      </TicketCard>
     </div>
   );
 }

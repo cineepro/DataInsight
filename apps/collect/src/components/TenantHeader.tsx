@@ -1,4 +1,4 @@
-// apps/collect/src/components/TenantHeader.tsx
+//apps/collect/src/components/TenantHeader.tsx
 import type { TenantPublicInfo } from '@datainsight/shared';
 
 interface TenantHeaderProps {
@@ -7,20 +7,19 @@ interface TenantHeaderProps {
 
 export default function TenantHeader({ tenant }: TenantHeaderProps) {
   return (
-    <div className="flex flex-col items-center gap-2 py-6">
+    <div className="flex flex-col items-center gap-3 pb-5 pt-2 text-center">
+      <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-marigold-600">Votre avis</span>
+
       {tenant.logo_url ? (
-        <img
-          src={tenant.logo_url}
-          alt={tenant.name}
-          className="h-16 w-16 rounded-full object-cover shadow-sm"
-        />
+        <img src={tenant.logo_url} alt={tenant.name} className="h-14 w-14 rounded-full object-cover" />
       ) : (
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-500 text-xl font-bold text-white">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-ink text-lg font-semibold text-white">
           {tenant.name.charAt(0)}
         </div>
       )}
-      <h1 className="text-lg font-semibold text-neutral-900">{tenant.name}</h1>
-      <p className="text-sm text-neutral-500">Votre avis nous aide à mieux vous servir</p>
+
+      <h1 className="font-display text-2xl font-medium text-ink">{tenant.name}</h1>
+      <p className="text-sm text-neutral-500">Ça prend 30 secondes, ça nous aide beaucoup.</p>
     </div>
   );
 }
