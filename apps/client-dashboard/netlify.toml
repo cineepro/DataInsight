@@ -1,0 +1,11 @@
+[build]
+  command = "corepack enable && pnpm install --frozen-lockfile && pnpm --filter client-dashboard run build"
+  publish = "apps/client-dashboard/dist"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

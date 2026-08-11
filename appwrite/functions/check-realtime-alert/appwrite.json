@@ -1,0 +1,16 @@
+{
+  "functionId": "check-realtime-alert",
+  "name": "check-realtime-alert",
+  "runtime": "node-18.0",
+  "execute": [],
+  "events": [
+    "databases.*.collections.*.documents.*.create"
+  ],
+  "schedule": "",
+  "timeout": 15,
+  "enabled": true,
+  "logging": true,
+  "entrypoint": "dist/main.js",
+  "commands": "npm install && npm run build",
+  "path": "functions/check-realtime-alert"
+}

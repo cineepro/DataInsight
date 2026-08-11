@@ -7,7 +7,9 @@ const NAV_LINKS = [
   { to: '/', label: 'Studio', end: true },
   { to: '/tenants', label: 'Structures' },
   { to: '/reports', label: 'Rapports' },
-  { to: '/customers', label: 'Clients' }
+  { to: '/customers', label: 'Clients' },
+  { to: '/billing', label: 'Facturation' },
+  { to: '/alerts', label: 'Alertes' },
 ];
 
 export default function Layout() {

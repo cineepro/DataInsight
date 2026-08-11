@@ -9,7 +9,9 @@ import StudioPage from '../features/studio/pages/StudioPage';
 import TenantsAdminPage from '../features/tenants/pages/TenantsAdminPage';
 import ReportsHistoryPage from '../features/studio/reports/pages/ReportsHistoryPage';
 
-import CustomersPage from '../features/customers/pages/CustomersPage'
+import CustomersPage from '../features/customers/pages/CustomersPage';
+import BillingPage from '../features/billing/pages/BillingPage';
+import AlertsPage from '../features/alerts/pages/AlertsPage';
 
 interface AuthState {
   session: AdminSession | null;
@@ -53,6 +55,8 @@ export default function AppRouter() {
           <Route path="/tenants" element={<TenantsAdminPage />} />
           <Route path="/reports" element={<ReportsHistoryPage />} />
           <Route path="/customers" element={<CustomersPage />} />
+          <Route path="/billing" element={<BillingPage />} />
+          <Route path="/alerts" element={<AlertsPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
