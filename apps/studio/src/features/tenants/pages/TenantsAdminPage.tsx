@@ -23,7 +23,8 @@ export default function TenantsAdminPage() {
     refresh();
   }, []);
 
-  function handleSaved(tenant: Tenant) {
+  // Supprimé le paramètre non utilisé "tenant"
+  function handleSaved() {
     setShowForm(false);
     setEditingTenant(undefined);
     refresh();
