@@ -1,4 +1,4 @@
-//apps/studio/src/features/studio/pages/StudioPage.tsx
+// apps/studio/src/features/studio/pages/StudioPage.tsx
 import { useState } from 'react';
 import type { AnalysisResult, Tenant, TenantCategory } from '@datainsight/shared';
 import { getISOYearWeek, formatWeekLabel } from '@datainsight/shared';
@@ -42,8 +42,6 @@ export default function StudioPage() {
 
     try {
       const scans = await fetchScansForCategory(category, tenant.slug, year, weekNumber);
-
-      // Semaine précédente, chargée seulement si utile (comparePeriodCrossMetrics)
       const previousWeek = weekNumber > 1 ? weekNumber - 1 : 52;
       const previousYear = weekNumber > 1 ? year : year - 1;
       const previousPeriodScans = await fetchScansForCategory(category, tenant.slug, previousYear, previousWeek);
@@ -52,7 +50,7 @@ export default function StudioPage() {
       const selectedFunctions = availableFunctions.filter((fn) => selectedFunctionIds.includes(fn.id));
 
       const analysisResults: AnalysisResult[] = selectedFunctions.map((fn) =>
-        // @ts-expect-error — le typage générique par catégorie est garanti au runtime par getFunctionsForCategory
+        // @ts-expect-error — typage garanti au runtime par getFunctionsForCategory
         fn.run(scans, { tenantId: tenant.slug, year, weekNumber, previousPeriodScans })
       );
 
@@ -62,7 +60,6 @@ export default function StudioPage() {
       const generatedText = await generateDirectives(tenant, period, analysisResults);
       setDirectives(generatedText);
 
-      // Sauvegarde immédiate en brouillon pour ne rien perdre
       await saveDraftReport({
         tenant_id: tenant.slug,
         year,
@@ -105,11 +102,14 @@ export default function StudioPage() {
   const canRun = !!tenant && selectedFunctionIds.length > 0;
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
-      <h1 className="mb-6 text-xl font-semibold text-neutral-900">Studio d'analyse</h1>
+    <div className="mx-auto max-w-3xl px-5 py-8">
+      <div className="mb-6">
+        <span className="font-mono text-[11px] uppercase tracking-wider text-neutral-400">Studio</span>
+        <h1 className="font-display text-2xl font-medium text-ink">Lancer une analyse</h1>
+      </div>
 
-      <Card className="mb-4">
-        <div className="flex flex-col gap-4">
+      <Card className="mb-6">
+        <div className="flex flex-col gap-5">
           <StructureSelector
             category={category}
             tenantId={tenant?.$id ?? ''}

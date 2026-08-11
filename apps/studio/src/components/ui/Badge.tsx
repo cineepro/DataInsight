@@ -1,12 +1,12 @@
-//apps/studio/src/components/ui/Badge.tsx
+// apps/studio/src/components/ui/Badge.tsx
 type BadgeStatus = 'OPTIMAL' | 'WARNING' | 'CRITICAL' | 'DRAFT' | 'PUBLISHED';
 
 const STATUS_CLASSES: Record<BadgeStatus, string> = {
-  OPTIMAL: 'bg-green-100 text-green-700',
-  WARNING: 'bg-amber-100 text-amber-700',
-  CRITICAL: 'bg-red-100 text-red-700',
-  DRAFT: 'bg-neutral-100 text-neutral-600',
-  PUBLISHED: 'bg-blue-100 text-blue-700',
+  OPTIMAL: 'bg-teal/10 text-teal',
+  WARNING: 'bg-marigold-500/15 text-marigold-600',
+  CRITICAL: 'bg-brick/10 text-brick',
+  DRAFT: 'bg-neutral-100 text-neutral-500',
+  PUBLISHED: 'bg-ink/10 text-ink',
 };
 
 const STATUS_LABELS: Record<BadgeStatus, string> = {
@@ -19,7 +19,7 @@ const STATUS_LABELS: Record<BadgeStatus, string> = {
 
 export default function Badge({ status }: { status: BadgeStatus }) {
   return (
-    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_CLASSES[status]}`}>
+    <span className={`rounded px-2 py-0.5 font-mono text-[11px] uppercase tracking-wide ${STATUS_CLASSES[status]}`}>
       {STATUS_LABELS[status]}
     </span>
   );

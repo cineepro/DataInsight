@@ -1,4 +1,4 @@
-//apps/studio/src/components/ui/Card.tsx
+// apps/studio/src/components/ui/Card.tsx
 import type { ReactNode } from 'react';
 
 interface CardProps {
@@ -6,6 +6,7 @@ interface CardProps {
   className?: string;
 }
 
+// Bords nets, hairline plutôt qu'ombre — cohérent avec l'esprit "instrument".
 export default function Card({ children, className = '' }: CardProps) {
-  return <div className={`rounded-xl border border-neutral-200 bg-white p-5 shadow-sm ${className}`}>{children}</div>;
+  return <div className={`border border-neutral-200 bg-white p-5 ${className}`}>{children}</div>;
 }

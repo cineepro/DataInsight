@@ -1,14 +1,11 @@
-//apps/studio/src/features/auth/pages/LoginPage.tsx
+// apps/studio/src/features/auth/pages/LoginPage.tsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../../../api/auth';
 import Input from '../../../components/ui/Input';
 import Button from '../../../components/ui/Button';
-import Card from '../../../components/ui/Card';
+import Logo from '../../../components/Logo';
 
-// Pas d'inscription libre ici : les comptes admin/analyste sont créés
-// manuellement dans la console Appwrite (ou via un script de seed) puis
-// ajoutés à la Team "admins" ou "analysts".
 export default function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -32,19 +29,16 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-neutral-100 p-4">
-      <Card className="w-full max-w-sm">
-        <h1 className="mb-1 text-lg font-semibold text-neutral-900">ASILLIA Studio</h1>
+    <div className="flex min-h-screen items-center justify-center bg-fog p-4">
+      <div className="w-full max-w-sm border border-neutral-200 bg-white p-8">
+        <div className="mb-6 flex items-center gap-2">
+          <Logo className="text-marigold-500" />
+          <span className="font-display text-lg font-medium text-ink">ASILLIA Studio</span>
+        </div>
         <p className="mb-6 text-sm text-neutral-500">Accès réservé aux administrateurs et analystes</p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <Input
-            label="Email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
+          <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           <Input
             label="Mot de passe"
             type="password"
@@ -53,13 +47,13 @@ export default function LoginPage() {
             required
           />
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-brick">{error}</p>}
 
-          <Button type="submit" loading={loading} className="w-full">
+          <Button type="submit" loading={loading} className="mt-2 w-full">
             Se connecter
           </Button>
         </form>
-      </Card>
+      </div>
     </div>
   );
 }

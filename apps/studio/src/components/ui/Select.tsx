@@ -1,4 +1,4 @@
-//apps/studio/src/components/ui/Select.tsx
+// apps/studio/src/components/ui/Select.tsx
 interface SelectOption {
   label: string;
   value: string;
@@ -15,11 +15,11 @@ interface SelectProps {
 export default function Select({ label, value, onChange, options, placeholder }: SelectProps) {
   return (
     <div className="flex flex-col gap-1">
-      {label && <label className="text-sm font-medium text-neutral-700">{label}</label>}
+      {label && <label className="text-xs font-medium uppercase tracking-wide text-neutral-500">{label}</label>}
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+        className="rounded-md border border-neutral-300 px-3 py-2 text-sm text-ink focus:border-ink focus:outline-none"
       >
         {placeholder && (
           <option value="" disabled>
