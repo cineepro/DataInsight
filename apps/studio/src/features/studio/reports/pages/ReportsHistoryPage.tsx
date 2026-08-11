@@ -1,4 +1,4 @@
-//apps/studio/src/features/studio/reports/pages/ReportsHistoryPage.tsx
+// apps/studio/src/features/studio/reports/pages/ReportsHistoryPage.tsx
 import { useEffect, useState } from 'react';
 import type { Tenant, TenantCategory, WeeklyReport } from '@datainsight/shared';
 import { listTenants } from '../../../../api/tenants';
@@ -47,8 +47,11 @@ export default function ReportsHistoryPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
-      <h1 className="mb-6 text-xl font-semibold text-neutral-900">Historique des rapports</h1>
+    <div className="mx-auto max-w-3xl px-5 py-8">
+      <div className="mb-6">
+        <span className="font-mono text-[11px] uppercase tracking-wider text-neutral-400">Rapports</span>
+        <h1 className="font-display text-2xl font-medium text-ink">Historique des rapports</h1>
+      </div>
 
       <div className="mb-6 flex gap-3">
         <div className="flex-1">

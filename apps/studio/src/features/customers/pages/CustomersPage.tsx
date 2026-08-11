@@ -53,11 +53,6 @@ export default function CustomersPage() {
     }
   }, [tenantId, tenants]);
 
-  /**
-   * Recalcule les statuts et les persiste en base — utile pour que la
-   * colonne "status" des customers reste à jour même consultée ailleurs
-   * (ex: un futur filtre serveur), pas seulement recalculée à la volée ici.
-   */
   async function handleSyncStatuses() {
     setSyncing(true);
     try {
@@ -84,8 +79,11 @@ export default function CustomersPage() {
   const selectedAnalysis = analysis.find((a) => a.customerId === selectedCustomerId);
 
   return (
-    <div className="mx-auto max-w-4xl p-6">
-      <h1 className="mb-6 text-xl font-semibold text-neutral-900">Fidélité clients</h1>
+    <div className="mx-auto max-w-4xl px-5 py-8">
+      <div className="mb-6">
+        <span className="font-mono text-[11px] uppercase tracking-wider text-neutral-400">Clients</span>
+        <h1 className="font-display text-2xl font-medium text-ink">Fidélité clients</h1>
+      </div>
 
       <div className="mb-6 flex gap-3">
         <div className="flex-1">

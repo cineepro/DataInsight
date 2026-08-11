@@ -1,3 +1,4 @@
+// apps/studio/src/features/tenants/pages/TenantsAdminPage.tsx
 import { useEffect, useState } from 'react';
 import type { Tenant } from '@datainsight/shared';
 import { listTenants } from '../../../api/tenants';
@@ -22,16 +23,19 @@ export default function TenantsAdminPage() {
     refresh();
   }, []);
 
-  function handleSaved() {
+  function handleSaved(tenant: Tenant) {
     setShowForm(false);
     setEditingTenant(undefined);
     refresh();
   }
 
   return (
-    <div className="mx-auto max-w-4xl p-6">
+    <div className="mx-auto max-w-4xl px-5 py-8">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-neutral-900">Structures partenaires</h1>
+        <div>
+          <span className="font-mono text-[11px] uppercase tracking-wider text-neutral-400">Structures</span>
+          <h1 className="font-display text-2xl font-medium text-ink">Structures partenaires</h1>
+        </div>
         <Button
           onClick={() => {
             setEditingTenant(undefined);

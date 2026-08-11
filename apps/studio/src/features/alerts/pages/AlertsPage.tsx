@@ -1,4 +1,4 @@
-//apps/studio/src/features/alerts/pages/AlertsPage.tsx
+// apps/studio/src/features/alerts/pages/AlertsPage.tsx
 import { useEffect, useState } from 'react';
 import type { AlertLogEntry } from '@datainsight/shared';
 import { listRecentAlerts } from '../../../api/alerts';
@@ -17,8 +17,11 @@ export default function AlertsPage() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
-      <h1 className="mb-6 text-xl font-semibold text-neutral-900">Alertes récentes</h1>
+    <div className="mx-auto max-w-3xl px-5 py-8">
+      <div className="mb-6">
+        <span className="font-mono text-[11px] uppercase tracking-wider text-neutral-400">Alertes</span>
+        <h1 className="font-display text-2xl font-medium text-ink">Alertes récentes</h1>
+      </div>
 
       {loading ? (
         <p className="text-sm text-neutral-400">Chargement...</p>
