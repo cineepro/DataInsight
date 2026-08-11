@@ -4,7 +4,17 @@ export default {
   theme: {
     extend: {
       colors: {
-        brand: { 500: '#f97316', 600: '#ea580c' },
+        ink: '#171A2B',
+        marigold: { 500: '#E2A63B', 600: '#C98F27' },
+        teal: '#1F6F5C',
+        brick: '#B23A3A',
+        statement: '#FAF8F4',
+        brand: { 500: '#E2A63B', 600: '#C98F27' },
+      },
+      fontFamily: {
+        display: ['"Fraunces"', 'serif'],
+        sans: ['"Inter"', 'system-ui', 'sans-serif'],
+        mono: ['"IBM Plex Mono"', 'monospace'],
       },
     },
   },

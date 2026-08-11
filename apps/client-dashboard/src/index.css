@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  color: #171a2b;
+}
+
 @media print {
   .no-print { display: none !important; }
 }
