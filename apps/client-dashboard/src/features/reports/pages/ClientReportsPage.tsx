@@ -4,6 +4,7 @@ import { getCurrentSession, logout } from '../../../api/auth';
 import { listPublishedReports } from '../../../api/reports';
 import type { WeeklyReport } from '@datainsight/shared';
 import ReportCard from '../components/ReportCard';
+import Logo from '../../../components/Logo';
 import Button from '../../../components/ui/Button';
 
 export default function ClientReportsPage() {
@@ -25,23 +26,33 @@ export default function ClientReportsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-100">
-      <header className="no-print flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-3">
-        <span className="text-sm font-semibold text-neutral-900">Mon espace ASILLIA</span>
-        <Button onClick={handleLogout} className="bg-white text-neutral-900 border border-neutral-300">
+    <div className="min-h-screen bg-statement">
+      <header className="no-print flex items-center justify-between px-6 py-5">
+        <div className="flex items-center gap-2">
+          <Logo className="text-marigold-500" />
+          <span className="font-display text-base font-medium text-ink">ASILLIA</span>
+        </div>
+        <Button variant="secondary" onClick={handleLogout}>
           Déconnexion
         </Button>
       </header>
 
-      <div className="mx-auto max-w-2xl p-6">
-        <h1 className="mb-6 text-xl font-semibold text-neutral-900">Vos rapports</h1>
+      <div className="mx-auto max-w-xl px-6 pb-16">
+        <div className="mb-8 text-center">
+          <span className="font-mono text-[11px] uppercase tracking-wider text-neutral-400">Vos rapports</span>
+          <h1 className="font-display text-3xl font-medium text-ink">Bulletin hebdomadaire</h1>
+        </div>
 
         {loading ? (
-          <p className="text-sm text-neutral-400">Chargement...</p>
+          <p className="text-center text-sm text-neutral-400">Chargement...</p>
         ) : reports.length === 0 ? (
-          <p className="text-sm text-neutral-400">Aucun rapport publié pour le moment.</p>
+          <div className="border border-dashed border-neutral-300 px-6 py-12 text-center">
+            <p className="text-sm text-neutral-500">
+              Aucun rapport publié pour le moment. Votre premier bulletin apparaîtra ici dès qu'il sera prêt.
+            </p>
+          </div>
         ) : (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-6">
             {reports.map((report) => (
               <ReportCard key={report.$id} report={report} />
             ))}

@@ -5,13 +5,6 @@ interface DownloadPdfButtonProps {
   targetId: string;
 }
 
-/**
- * Solution volontairement simple, sans dépendance : déclenche l'impression
- * navigateur sur la seule carte concernée (le reste de la page est masqué
- * via la classe .no-print), que l'utilisateur peut "Enregistrer en PDF"
- * depuis la boîte de dialogue d'impression — fonctionne sur tous les
- * navigateurs mobiles et desktop sans librairie supplémentaire.
- */
 export default function DownloadPdfButton({ targetId }: DownloadPdfButtonProps) {
   function handlePrint() {
     document.querySelectorAll('.report-card').forEach((el) => {
@@ -22,7 +15,7 @@ export default function DownloadPdfButton({ targetId }: DownloadPdfButtonProps) 
   }
 
   return (
-    <Button onClick={handlePrint} className="no-print">
+    <Button variant="secondary" onClick={handlePrint} className="no-print">
       Télécharger en PDF
     </Button>
   );

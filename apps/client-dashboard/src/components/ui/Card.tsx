@@ -1,15 +1,9 @@
-//apps/client-dashboard/src/components/ui/Card.tsx
+// apps/client-dashboard/src/components/ui/Card.tsx
 import type { ReactNode } from 'react';
 
-interface CardProps {
-  children: ReactNode;
-  className?: string;
-  id?: string;
-}
-
-export default function Card({ children, className = '', id }: CardProps) {
+export default function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <div id={id} className={`rounded-xl border border-neutral-200 bg-white p-5 shadow-sm ${className}`}>
+    <div className={`border border-neutral-200/80 bg-white px-6 py-7 shadow-[0_1px_2px_rgba(23,26,43,0.04)] ${className}`}>
       {children}
     </div>
   );

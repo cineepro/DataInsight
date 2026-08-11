@@ -8,16 +8,20 @@ export default function ReportCard({ report }: { report: WeeklyReport }) {
 
   return (
     <Card className="report-card" id={cardId}>
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-base font-semibold text-neutral-900">
-          Semaine {report.week_number} — {report.year}
-        </h3>
-        <span className="text-xs text-neutral-400">
-          {report.published_at && new Date(report.published_at).toLocaleDateString('fr-FR')}
-        </span>
+      <div className="mb-1 font-mono text-[11px] uppercase tracking-wider text-neutral-400">
+        Semaine {report.week_number} — {report.year}
       </div>
 
-      <p className="mb-4 whitespace-pre-line text-sm text-neutral-700">{report.ai_directives}</p>
+      <h2 className="mb-4 font-display text-2xl font-medium text-ink">
+        {report.published_at &&
+          new Date(report.published_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+      </h2>
+
+      <div className="mb-1 h-px bg-neutral-200" />
+
+      <p className="my-6 whitespace-pre-line text-[15px] leading-[1.8] text-ink">{report.ai_directives}</p>
+
+      <div className="mb-6 h-px bg-neutral-200" />
 
       <DownloadPdfButton targetId={cardId} />
     </Card>
