@@ -1,9 +1,9 @@
 [build]
-  command = "corepack enable && pnpm install --frozen-lockfile && pnpm --filter client-dashboard run build"
+  command = "npm run build --workspace=apps/client-dashboard"
   publish = "apps/client-dashboard/dist"
 
 [build.environment]
-  NODE_VERSION = "18"
+  NODE_VERSION = "20"
 
 [[redirects]]
   from = "/*"
