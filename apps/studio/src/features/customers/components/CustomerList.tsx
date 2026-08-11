@@ -1,4 +1,4 @@
-// apps/studio/src/features/customers/components/CustomerList.tsx
+//apps/studio/src/features/customers/components/CustomerList.tsx
 import type { ChurnAnalysisEntry } from '../../../engine/common/detectChurnRisk';
 import Badge from '../../../components/ui/Badge';
 
@@ -12,12 +12,6 @@ const RISK_TO_BADGE = {
   ACTIVE: 'OPTIMAL',
   AT_RISK: 'WARNING',
   CHURNED: 'CRITICAL',
-} as const;
-
-const RISK_LABEL = {
-  ACTIVE: 'Actif',
-  AT_RISK: 'À risque',
-  CHURNED: 'Perdu',
 } as const;
 
 export default function CustomerList({ entries, onSelect, selectedId }: CustomerListProps) {
