@@ -4,22 +4,23 @@ import { useTenantFromSlug } from '../../hooks/useTenantFromSlug';
 import TenantHeader from '../../components/TenantHeader';
 import StarRating from '../../components/ui/StarRating';
 import TextArea from '../../components/ui/TextArea';
+import ContactFields from '../../components/ui/ContactFields';
 import Button from '../../components/ui/Button';
 import SubmittedScreen from '../../components/ui/SubmittedScreen';
 import { submitEntrepriseScan } from './submitEntrepriseScan';
 
-// Formulaire générique : "interaction_type" est saisi en texte libre pour
-// l'instant. En v2, on pourra le remplacer par une liste déroulante générée
-// depuis une config JSON stockée par tenant (voir doc architecture, section categories).
 export default function EntrepriseForm() {
   const { tenant, loading, error, slug } = useTenantFromSlug();
 
   const [interactionType, setInteractionType] = useState('');
   const [satisfactionGlobal, setSatisfactionGlobal] = useState<number>();
   const [comment, setComment] = useState('');
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center text-neutral-400">Chargement...</div>;
@@ -42,17 +43,21 @@ export default function EntrepriseForm() {
   async function handleSubmit() {
     if (!canSubmit) return;
     setSubmitting(true);
+    setSubmitError(null);
     try {
-      await submitEntrepriseScan({
-        tenant_id: slug,
-        interaction_type: interactionType.trim(),
-        satisfaction_global: satisfactionGlobal,
-        comment: comment || undefined,
-      });
+      await submitEntrepriseScan(
+        slug,
+        {
+          interaction_type: interactionType.trim(),
+          satisfaction_global: satisfactionGlobal,
+          comment: comment || undefined,
+        },
+        { phone: phone || undefined, name: name || undefined }
+      );
       setSubmitted(true);
     } catch (err) {
       console.error(err);
-      alert("Une erreur est survenue, merci de réessayer.");
+      setSubmitError(err instanceof Error ? err.message : 'Une erreur est survenue, merci de réessayer.');
     } finally {
       setSubmitting(false);
     }
@@ -87,6 +92,10 @@ export default function EntrepriseForm() {
           value={comment}
           onChange={(e) => setComment(e.target.value)}
         />
+
+        <ContactFields phone={phone} name={name} onPhoneChange={setPhone} onNameChange={setName} />
+
+        {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
         <Button onClick={handleSubmit} disabled={!canSubmit} loading={submitting}>
           Envoyer mon avis

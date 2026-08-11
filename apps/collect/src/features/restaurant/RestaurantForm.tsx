@@ -5,6 +5,7 @@ import TenantHeader from '../../components/TenantHeader';
 import RadioGroup from '../../components/ui/RadioGroup';
 import StarRating from '../../components/ui/StarRating';
 import TextArea from '../../components/ui/TextArea';
+import ContactFields from '../../components/ui/ContactFields';
 import Button from '../../components/ui/Button';
 import SubmittedScreen from '../../components/ui/SubmittedScreen';
 import { submitRestaurantScan } from './submitRestaurantScan';
@@ -52,9 +53,12 @@ export default function RestaurantForm() {
   const [visitType, setVisitType] = useState<VisitTypeRestaurant>();
   const [visitFrequency, setVisitFrequency] = useState<VisitFrequency>();
   const [comment, setComment] = useState('');
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center text-neutral-400">Chargement...</div>;
@@ -77,22 +81,26 @@ export default function RestaurantForm() {
   async function handleSubmit() {
     if (!canSubmit || !waitTime) return;
     setSubmitting(true);
+    setSubmitError(null);
     try {
-      await submitRestaurantScan({
-        tenant_id: slug,
-        zone,
-        satisfaction_global: satisfactionGlobal!,
-        satisfaction_plat: satisfactionPlat,
-        wait_time_bucket: waitTime,
-        service_quality: serviceQuality,
-        visit_type: visitType,
-        visit_frequency: visitFrequency,
-        comment: comment || undefined,
-      });
+      await submitRestaurantScan(
+        slug,
+        {
+          zone,
+          satisfaction_global: satisfactionGlobal!,
+          satisfaction_plat: satisfactionPlat,
+          wait_time_bucket: waitTime,
+          service_quality: serviceQuality,
+          visit_type: visitType,
+          visit_frequency: visitFrequency,
+          comment: comment || undefined,
+        },
+        { phone: phone || undefined, name: name || undefined }
+      );
       setSubmitted(true);
     } catch (err) {
       console.error(err);
-      alert("Une erreur est survenue, merci de réessayer.");
+      setSubmitError(err instanceof Error ? err.message : 'Une erreur est survenue, merci de réessayer.');
     } finally {
       setSubmitting(false);
     }
@@ -160,6 +168,10 @@ export default function RestaurantForm() {
           value={comment}
           onChange={(e) => setComment(e.target.value)}
         />
+
+        <ContactFields phone={phone} name={name} onPhoneChange={setPhone} onNameChange={setName} />
+
+        {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
         <Button onClick={handleSubmit} disabled={!canSubmit} loading={submitting}>
           Envoyer mon avis

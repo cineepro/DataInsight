@@ -6,6 +6,7 @@ import Input from '../../../components/ui/Input';
 import Select from '../../../components/ui/Select';
 import Button from '../../../components/ui/Button';
 import Card from '../../../components/ui/Card';
+import ProvisionAccessButton from './ProvisionAccessButton';
 
 const CATEGORY_OPTIONS = [
   { label: 'Restaurant', value: 'RESTAURANT' },
@@ -148,6 +149,10 @@ export default function TenantForm({ existingTenant, onSaved }: TenantFormProps)
         <Button type="submit" loading={saving}>
           {existingTenant ? 'Enregistrer' : 'Créer la structure'}
         </Button>
+
+        {existingTenant && (
+  <ProvisionAccessButton tenant={existingTenant} onProvisioned={() => onSaved(existingTenant)} />
+)}
       </form>
     </Card>
   );

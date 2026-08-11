@@ -3,6 +3,7 @@
 export interface ScanBase {
   $id?: string;
   tenant_id: string;
+  customer_id?: string; // Rempli par la Function submit-scan, jamais par le client directement
   timestamp: string;
   year: number;
   week_number: number;
@@ -44,7 +45,7 @@ export interface ScanPharmacie extends ScanBase {
 export interface ScanEntreprise extends ScanBase {
   interaction_type: string;
   satisfaction_global?: number; // 1-5
-  payload?: string; // JSON.stringify d'un objet libre selon config du tenant
+  payload?: string;
 }
 
 export type ScanCategory = 'RESTAURANT' | 'PHARMACIE' | 'ENTREPRISE';

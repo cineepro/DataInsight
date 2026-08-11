@@ -1,5 +1,6 @@
-//appwrite/functions/submit-scan/src/main.ts
+// appwrite/functions/submit-scan/src/main.ts
 import { Client, Databases, Query, ID } from 'node-appwrite';
+import { hashVisitor, extractClientIp } from './hashVisitor';
 
 type ScanCategory = 'RESTAURANT' | 'FASTFOOD' | 'PHARMACIE' | 'ENTREPRISE';
 
@@ -7,7 +8,12 @@ interface SubmitScanPayload {
   tenant_slug: string;
   category: ScanCategory;
   data: Record<string, unknown>;
+  phone?: string;
+  name?: string;
 }
+
+const RATE_LIMIT_MAX_PER_HOUR = 5;
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 
 function getISOYearWeek(date: Date) {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -30,12 +36,10 @@ function collectionForCategory(category: ScanCategory): string {
   }
 }
 
-/**
- * Alternative "serveur" à l'écriture directe depuis apps/collect :
- * valide que le tenant existe et est ACTIF/PILOTE avant d'insérer le scan.
- * Utile si tu veux bloquer les soumissions pour un tenant SUSPENDED sans
- * exposer cette logique côté client.
- */
+function normalizePhone(phone: string): string {
+  return phone.replace(/[\s.-]/g, '');
+}
+
 export default async ({ req, res, log, error }: any) => {
   let body: SubmitScanPayload;
 
@@ -55,27 +59,108 @@ export default async ({ req, res, log, error }: any) => {
     .setKey(process.env.APPWRITE_API_KEY!);
 
   const databases = new Databases(client);
+  const databaseId = process.env.APPWRITE_DATABASE_ID!;
 
   try {
-    const tenantResult = await databases.listDocuments(
-      process.env.APPWRITE_DATABASE_ID!,
-      process.env.APPWRITE_COLLECTION_TENANTS!,
-      [Query.equal('slug', body.tenant_slug), Query.limit(1)]
-    );
-
+    // --- 1. Vérifier que le tenant existe et accepte des soumissions ---
+    const tenantResult = await databases.listDocuments(databaseId, process.env.APPWRITE_COLLECTION_TENANTS!, [
+      Query.equal('slug', body.tenant_slug),
+      Query.limit(1),
+    ]);
     const tenant = tenantResult.documents[0] as any;
     if (!tenant) return res.json({ error: 'Structure introuvable.' }, 404);
     if (tenant.status === 'SUSPENDED') {
       return res.json({ error: 'Collecte suspendue pour cette structure.' }, 403);
     }
 
-    const now = new Date();
-    const { year, week_number, day_of_week } = getISOYearWeek(now);
-    const collectionId = collectionForCategory(body.category);
+    // --- 2. Calculer l'empreinte visiteur (jamais l'IP en clair) ---
+    const ip = extractClientIp(req.headers ?? {});
+    const userAgent = req.headers?.['user-agent'] ?? 'unknown';
+    const visitorHash = hashVisitor(ip, body.tenant_slug, userAgent);
 
-    await databases.createDocument(process.env.APPWRITE_DATABASE_ID!, collectionId, ID.unique(), {
+    // --- 3. Anti-abus : compter les soumissions récentes de cette empreinte ---
+    const rateLimitCollectionId = process.env.APPWRITE_COLLECTION_RATE_LIMIT_EVENTS!;
+    const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
+
+    const recentSubmissions = await databases.listDocuments(databaseId, rateLimitCollectionId, [
+      Query.equal('tenant_id', body.tenant_slug),
+      Query.equal('visitor_hash', visitorHash),
+      Query.greaterThan('timestamp', windowStart),
+      Query.limit(RATE_LIMIT_MAX_PER_HOUR + 1),
+    ]);
+
+    if (recentSubmissions.documents.length >= RATE_LIMIT_MAX_PER_HOUR) {
+      return res.json({ error: 'Trop de soumissions récentes. Merci de réessayer plus tard.' }, 429);
+    }
+
+    await databases.createDocument(databaseId, rateLimitCollectionId, ID.unique(), {
+      tenant_id: body.tenant_slug,
+      visitor_hash: visitorHash,
+      timestamp: new Date().toISOString(),
+    });
+
+    // --- 4. Résoudre ou créer le client (customer) ---
+    const customersCollectionId = process.env.APPWRITE_COLLECTION_CUSTOMERS!;
+    const now = new Date();
+    let customerId: string | undefined;
+
+    const normalizedPhone = body.phone ? normalizePhone(body.phone) : undefined;
+
+    // Priorité au téléphone (signal fort et volontaire) s'il est fourni,
+    // sinon on retombe sur l'empreinte visiteur (signal automatique).
+    let existingCustomer: any = null;
+
+    if (normalizedPhone) {
+      const byPhone = await databases.listDocuments(databaseId, customersCollectionId, [
+        Query.equal('tenant_id', body.tenant_slug),
+        Query.equal('phone', normalizedPhone),
+        Query.limit(1),
+      ]);
+      existingCustomer = byPhone.documents[0] ?? null;
+    }
+
+    if (!existingCustomer) {
+      const byHash = await databases.listDocuments(databaseId, customersCollectionId, [
+        Query.equal('tenant_id', body.tenant_slug),
+        Query.equal('visitor_hash', visitorHash),
+        Query.limit(1),
+      ]);
+      existingCustomer = byHash.documents[0] ?? null;
+    }
+
+    if (existingCustomer) {
+      const updated = await databases.updateDocument(databaseId, customersCollectionId, existingCustomer.$id, {
+        last_seen: now.toISOString(),
+        visit_count: (existingCustomer.visit_count ?? 0) + 1,
+        status: 'ACTIVE',
+        // On complète le profil si le client donne enfin son nom/téléphone
+        // sur une visite ultérieure, sans écraser des infos déjà connues.
+        phone: normalizedPhone ?? existingCustomer.phone,
+        name: body.name ?? existingCustomer.name,
+      });
+      customerId = updated.$id;
+    } else {
+      const created = await databases.createDocument(databaseId, customersCollectionId, ID.unique(), {
+        tenant_id: body.tenant_slug,
+        phone: normalizedPhone,
+        name: body.name,
+        visitor_hash: visitorHash,
+        first_seen: now.toISOString(),
+        last_seen: now.toISOString(),
+        visit_count: 1,
+        status: 'ACTIVE',
+      });
+      customerId = created.$id;
+    }
+
+    // --- 5. Insérer le scan, lié au customer ---
+    const { year, week_number, day_of_week } = getISOYearWeek(now);
+    const scanCollectionId = collectionForCategory(body.category);
+
+    await databases.createDocument(databaseId, scanCollectionId, ID.unique(), {
       ...body.data,
       tenant_id: body.tenant_slug,
+      customer_id: customerId,
       timestamp: now.toISOString(),
       year,
       week_number,

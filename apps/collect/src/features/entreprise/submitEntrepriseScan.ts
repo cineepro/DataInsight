@@ -1,25 +1,38 @@
 // apps/collect/src/features/entreprise/submitEntrepriseScan.ts
-import { ID } from 'appwrite';
-import { databases } from '../../api/client';
-import { getISOYearWeek } from '@datainsight/shared';
+import { functions } from '../../api/client';
 import type { ScanEntreprise } from '@datainsight/shared';
 
-const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
-const COLLECTION_ID = import.meta.env.VITE_COLLECTION_SCANS_ENTREPRISE;
+interface SubmitResult {
+  success?: boolean;
+  error?: string;
+}
 
-type ScanEntrepriseInput = Omit<ScanEntreprise, 'timestamp' | 'year' | 'week_number' | 'day_of_week'>;
+type ScanEntrepriseInput = Omit<ScanEntreprise,
+  'timestamp' | 'year' | 'week_number' | 'day_of_week' | 'customer_id' | 'tenant_id'
+>;
 
-export async function submitEntrepriseScan(input: ScanEntrepriseInput): Promise<void> {
-  const now = new Date();
-  const { year, week_number, day_of_week } = getISOYearWeek(now);
+export async function submitEntrepriseScan(
+  tenantSlug: string,
+  input: ScanEntrepriseInput,
+  contact?: { phone?: string; name?: string }
+): Promise<void> {
+  const functionId = import.meta.env.VITE_FUNCTION_SUBMIT_SCAN;
 
-  const payload: ScanEntreprise = {
-    ...input,
-    timestamp: now.toISOString(),
-    year,
-    week_number,
-    day_of_week,
-  };
+  const execution = await functions.createExecution(
+    functionId,
+    JSON.stringify({
+      tenant_slug: tenantSlug,
+      category: 'ENTREPRISE',
+      data: input,
+      phone: contact?.phone,
+      name: contact?.name,
+    }),
+    false
+  );
 
-  await databases.createDocument(DATABASE_ID, COLLECTION_ID, ID.unique(), payload);
+  const parsed = JSON.parse(execution.responseBody) as SubmitResult;
+
+  if (execution.responseStatusCode !== 200 || !parsed.success) {
+    throw new Error(parsed.error ?? "Erreur lors de l'envoi.");
+  }
 }

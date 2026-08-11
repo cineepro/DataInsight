@@ -1,18 +1,12 @@
-//apps/studio/src/routes/AppRouter.tsx
+// apps/client-dashboard/src/routes/AppRouter.tsx
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { getCurrentSession, type AdminSession } from '../api/auth';
-
-import Layout from '../components/Layout';
+import { getCurrentSession, type ClientSession } from '../api/auth';
 import LoginPage from '../features/auth/pages/LoginPage';
-import StudioPage from '../features/studio/pages/StudioPage';
-import TenantsAdminPage from '../features/tenants/pages/TenantsAdminPage';
-import ReportsHistoryPage from '../features/studio/reports/pages/ReportsHistoryPage';
-
-import CustomersPage from '../features/customers/pages/CustomersPage'
+import ClientReportsPage from '../features/reports/pages/ClientReportsPage';
 
 interface AuthState {
-  session: AdminSession | null;
+  session: ClientSession | null;
   loading: boolean;
 }
 
@@ -41,21 +35,14 @@ export default function AppRouter() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-
         <Route
+          path="/*"
           element={
             <ProtectedRoute>
-              <Layout />
+              <ClientReportsPage />
             </ProtectedRoute>
           }
-        >
-          <Route path="/" element={<StudioPage />} />
-          <Route path="/tenants" element={<TenantsAdminPage />} />
-          <Route path="/reports" element={<ReportsHistoryPage />} />
-          <Route path="/customers" element={<CustomersPage />} />
-        </Route>
-
-        <Route path="*" element={<Navigate to="/" replace />} />
+        />
       </Routes>
     </BrowserRouter>
   );

@@ -12,14 +12,11 @@ export interface Tenant {
   phone?: string;
   contact_email?: string;
   status: TenantStatus;
+  client_team_id?: string; // rempli une fois l'accès dashboard provisionné
   subscription_started_at?: string;
   created_at: string;
 }
 
-/**
- * Sous-ensemble renvoyé par la Function get-tenant-public-info
- * à l'app collect. Ne contient jamais les infos sensibles du tenant.
- */
 export interface TenantPublicInfo {
   name: string;
   logo_url?: string;

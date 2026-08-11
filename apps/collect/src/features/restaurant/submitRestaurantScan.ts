@@ -1,25 +1,38 @@
-// apps/collect/src/features/restaurant/submitRestaurantScan.ts
-import { ID } from 'appwrite';
-import { databases } from '../../api/client';
-import { getISOYearWeek } from '@datainsight/shared';
+//apps/collect/src/features/restaurant/submitRestaurantScan.ts
+import { functions } from '../../api/client';
 import type { ScanRestaurant } from '@datainsight/shared';
 
-const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
-const COLLECTION_ID = import.meta.env.VITE_COLLECTION_SCANS_RESTAURANT;
+interface SubmitResult {
+  success?: boolean;
+  error?: string;
+}
 
-type ScanRestaurantInput = Omit<ScanRestaurant, 'timestamp' | 'year' | 'week_number' | 'day_of_week'>;
+type ScanRestaurantInput = Omit<ScanRestaurant,
+  'timestamp' | 'year' | 'week_number' | 'day_of_week' | 'customer_id' | 'tenant_id'
+>;
 
-export async function submitRestaurantScan(input: ScanRestaurantInput): Promise<void> {
-  const now = new Date();
-  const { year, week_number, day_of_week } = getISOYearWeek(now);
+export async function submitRestaurantScan(
+  tenantSlug: string,
+  input: ScanRestaurantInput,
+  contact?: { phone?: string; name?: string }
+): Promise<void> {
+  const functionId = import.meta.env.VITE_FUNCTION_SUBMIT_SCAN;
 
-  const payload: ScanRestaurant = {
-    ...input,
-    timestamp: now.toISOString(),
-    year,
-    week_number,
-    day_of_week,
-  };
+  const execution = await functions.createExecution(
+    functionId,
+    JSON.stringify({
+      tenant_slug: tenantSlug,
+      category: 'RESTAURANT',
+      data: input,
+      phone: contact?.phone,
+      name: contact?.name,
+    }),
+    false
+  );
 
-  await databases.createDocument(DATABASE_ID, COLLECTION_ID, ID.unique(), payload);
+  const parsed = JSON.parse(execution.responseBody) as SubmitResult;
+
+  if (execution.responseStatusCode !== 200 || !parsed.success) {
+    throw new Error(parsed.error ?? "Erreur lors de l'envoi.");
+  }
 }

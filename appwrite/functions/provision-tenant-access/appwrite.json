@@ -1,0 +1,14 @@
+{
+  "functionId": "provision-tenant-access",
+  "name": "provision-tenant-access",
+  "runtime": "node-18.0",
+  "execute": ["team:admins", "team:analysts"],
+  "events": [],
+  "schedule": "",
+  "timeout": 20,
+  "enabled": true,
+  "logging": true,
+  "entrypoint": "dist/main.js",
+  "commands": "npm install && npm run build",
+  "path": "functions/provision-tenant-access"
+}

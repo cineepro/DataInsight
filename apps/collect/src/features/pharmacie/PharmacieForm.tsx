@@ -5,6 +5,7 @@ import TenantHeader from '../../components/TenantHeader';
 import RadioGroup from '../../components/ui/RadioGroup';
 import StarRating from '../../components/ui/StarRating';
 import TextArea from '../../components/ui/TextArea';
+import ContactFields from '../../components/ui/ContactFields';
 import Button from '../../components/ui/Button';
 import SubmittedScreen from '../../components/ui/SubmittedScreen';
 import { submitPharmacieScan } from './submitPharmacieScan';
@@ -42,9 +43,12 @@ export default function PharmacieForm() {
   const [availability, setAvailability] = useState<ProductAvailability>();
   const [missingProduct, setMissingProduct] = useState('');
   const [comment, setComment] = useState('');
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center text-neutral-400">Chargement...</div>;
@@ -68,20 +72,24 @@ export default function PharmacieForm() {
   async function handleSubmit() {
     if (!canSubmit || !visitReason || !waitTime || !availability) return;
     setSubmitting(true);
+    setSubmitError(null);
     try {
-      await submitPharmacieScan({
-        tenant_id: slug,
-        visit_reason: visitReason,
-        wait_time_bucket: waitTime,
-        reception_quality: receptionQuality,
-        product_availability: availability,
-        missing_product: showMissingProductField ? missingProduct || undefined : undefined,
-        comment: comment || undefined,
-      });
+      await submitPharmacieScan(
+        slug,
+        {
+          visit_reason: visitReason,
+          wait_time_bucket: waitTime,
+          reception_quality: receptionQuality,
+          product_availability: availability,
+          missing_product: showMissingProductField ? missingProduct || undefined : undefined,
+          comment: comment || undefined,
+        },
+        { phone: phone || undefined, name: name || undefined }
+      );
       setSubmitted(true);
     } catch (err) {
       console.error(err);
-      alert("Une erreur est survenue, merci de réessayer.");
+      setSubmitError(err instanceof Error ? err.message : 'Une erreur est survenue, merci de réessayer.');
     } finally {
       setSubmitting(false);
     }
@@ -138,6 +146,10 @@ export default function PharmacieForm() {
           value={comment}
           onChange={(e) => setComment(e.target.value)}
         />
+
+        <ContactFields phone={phone} name={name} onPhoneChange={setPhone} onNameChange={setName} />
+
+        {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
         <Button onClick={handleSubmit} disabled={!canSubmit} loading={submitting}>
           Envoyer mon avis

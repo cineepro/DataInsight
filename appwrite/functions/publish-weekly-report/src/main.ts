@@ -1,17 +1,11 @@
 //appwrite/functions/publish-weekly-report/src/main.ts
-import { Client, Databases, Messaging, Query, ID } from 'node-appwrite';
+import { Client, Databases, Messaging, Query, ID, Permission, Role } from 'node-appwrite';
 
 interface RequestPayload {
   reportId: string;
   analystId: string;
 }
 
-/**
- * Marque un rapport comme PUBLISHED et, si le tenant a un contact_email,
- * envoie une notification par email via Appwrite Messaging.
- * L'envoi d'email est optionnel : s'il échoue ou si aucun provider n'est
- * configuré, la publication du rapport reste effective.
- */
 export default async ({ req, res, log, error }: any) => {
   let body: RequestPayload;
 
@@ -35,6 +29,33 @@ export default async ({ req, res, log, error }: any) => {
   const databaseId = process.env.APPWRITE_DATABASE_ID!;
 
   try {
+    // Récupère d'abord le report pour connaître le tenant concerné
+    const report = (await databases.getDocument(
+      databaseId,
+      process.env.APPWRITE_COLLECTION_WEEKLY_REPORTS!,
+      body.reportId
+    )) as any;
+
+    const tenantResult = await databases.listDocuments(databaseId, process.env.APPWRITE_COLLECTION_TENANTS!, [
+      Query.equal('slug', report.tenant_id),
+      Query.limit(1),
+    ]);
+    const tenant = tenantResult.documents[0] as any;
+
+    // Permissions du document : admins/analysts gardent tout accès,
+    // + lecture pour la Team du tenant SI l'accès client a été provisionné.
+    const permissions = [
+      Permission.read(Role.team('admins')),
+      Permission.read(Role.team('analysts')),
+      Permission.update(Role.team('admins')),
+      Permission.update(Role.team('analysts')),
+      Permission.delete(Role.team('admins')),
+    ];
+
+    if (tenant?.client_team_id) {
+      permissions.push(Permission.read(Role.team(tenant.client_team_id)));
+    }
+
     const updated = await databases.updateDocument(
       databaseId,
       process.env.APPWRITE_COLLECTION_WEEKLY_REPORTS!,
@@ -43,20 +64,12 @@ export default async ({ req, res, log, error }: any) => {
         status: 'PUBLISHED',
         analyst_id: body.analystId,
         published_at: new Date().toISOString(),
-      }
+      },
+      permissions
     );
 
-    const report = updated as any;
-
-    // Notification email best-effort : ne bloque jamais la publication si elle échoue.
+    // Notification email best-effort, inchangée
     try {
-      const tenantResult = await databases.listDocuments(
-        databaseId,
-        process.env.APPWRITE_COLLECTION_TENANTS!,
-        [Query.equal('slug', report.tenant_id), Query.limit(1)]
-      );
-      const tenant = tenantResult.documents[0] as any;
-
       if (tenant?.contact_email) {
         await messaging.createEmail(
           ID.unique(),

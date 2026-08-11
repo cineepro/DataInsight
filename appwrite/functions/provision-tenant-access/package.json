@@ -1,6 +1,6 @@
 {
-  "name": "submit-scan",
-  "version": "2.0.0",
+  "name": "provision-tenant-access",
+  "version": "1.0.0",
   "type": "commonjs",
   "main": "dist/main.js",
   "scripts": {
