@@ -1,7 +1,7 @@
 //apps/studio/src/features/tenants/components/TenantForm.tsx
 import { useState } from 'react';
 import type { Tenant, TenantCategory, TenantStatus } from '@datainsight/shared';
-import { createTenant, updateTenant } from '../../../api/tenants';
+import { createTenant, updateTenant, deleteTenant } from '../../../api/tenants';
 import Input from '../../../components/ui/Input';
 import Select from '../../../components/ui/Select';
 import Button from '../../../components/ui/Button';
@@ -21,7 +21,6 @@ const STATUS_OPTIONS = [
   { label: 'Suspendu', value: 'SUSPENDED' },
 ];
 
-// Préfixe du slug par catégorie -> détermine aussi la route du formulaire collect (/r, /p, /e)
 const CATEGORY_PREFIX: Record<TenantCategory, string> = {
   RESTAURANT: 'rest',
   FASTFOOD: 'rest',
@@ -55,9 +54,10 @@ function generateSlug(name: string, category: TenantCategory): string {
 interface TenantFormProps {
   existingTenant?: Tenant;
   onSaved: (tenant: Tenant) => void;
+  onDeleted?: () => void;
 }
 
-export default function TenantForm({ existingTenant, onSaved }: TenantFormProps) {
+export default function TenantForm({ existingTenant, onSaved, onDeleted }: TenantFormProps) {
   const [name, setName] = useState(existingTenant?.name ?? '');
   const [category, setCategory] = useState<TenantCategory>(existingTenant?.category ?? 'RESTAURANT');
   const [address, setAddress] = useState(existingTenant?.address ?? '');
@@ -65,6 +65,8 @@ export default function TenantForm({ existingTenant, onSaved }: TenantFormProps)
   const [contactEmail, setContactEmail] = useState(existingTenant?.contact_email ?? '');
   const [status, setStatus] = useState<TenantStatus>(existingTenant?.status ?? 'PILOT');
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const slug = existingTenant?.slug ?? generateSlug(name || 'structure', category);
   const collectPath = CATEGORY_COLLECT_PATH[category];
@@ -106,9 +108,30 @@ export default function TenantForm({ existingTenant, onSaved }: TenantFormProps)
     }
   }
 
+  async function handleDelete() {
+    if (!existingTenant) return;
+
+    if (!confirmingDelete) {
+      setConfirmingDelete(true);
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      await deleteTenant(existingTenant.$id);
+      onDeleted?.();
+    } catch (err) {
+      console.error(err);
+      alert('Erreur lors de la suppression.');
+      setConfirmingDelete(false);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
     <Card>
-      <h2 className="mb-4 text-base font-semibold text-neutral-900">
+      <h2 className="mb-4 font-display text-lg font-medium text-ink">
         {existingTenant ? 'Modifier la structure' : 'Nouvelle structure'}
       </h2>
 
@@ -138,8 +161,8 @@ export default function TenantForm({ existingTenant, onSaved }: TenantFormProps)
           options={STATUS_OPTIONS}
         />
 
-        <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
-          <div className="mb-2 text-xs font-medium text-neutral-500">
+        <div className="border border-neutral-200 bg-neutral-50 p-3">
+          <div className="mb-2 font-mono text-[11px] uppercase tracking-wide text-neutral-500">
             Lien de collecte {existingTenant ? '' : '(généré à la sauvegarde)'}
           </div>
           <div className="mb-3 break-all text-xs text-neutral-700">{collectUrl}</div>
@@ -149,11 +172,38 @@ export default function TenantForm({ existingTenant, onSaved }: TenantFormProps)
         <Button type="submit" loading={saving}>
           {existingTenant ? 'Enregistrer' : 'Créer la structure'}
         </Button>
-
-        {existingTenant && (
-  <ProvisionAccessButton tenant={existingTenant} onProvisioned={() => onSaved(existingTenant)} />
-)}
       </form>
+
+      {existingTenant && (
+        <div className="mt-4 flex flex-col gap-3 border-t border-neutral-200 pt-4">
+          <ProvisionAccessButton tenant={existingTenant} onProvisioned={() => onSaved(existingTenant)} />
+
+          {!confirmingDelete ? (
+            <button
+              onClick={handleDelete}
+              className="self-start text-sm text-brick underline decoration-brick/40 underline-offset-2 hover:decoration-brick"
+            >
+              Supprimer cette structure
+            </button>
+          ) : (
+            <div className="border border-brick/30 bg-brick/5 p-3">
+              <p className="mb-3 text-sm text-ink">
+                Confirmer la suppression de <strong>{existingTenant.name}</strong> ? Cette action est
+                irréversible. Les avis déjà collectés pour cette structure resteront en base mais ne
+                seront plus rattachables à aucune structure active.
+              </p>
+              <div className="flex gap-2">
+                <Button variant="danger" onClick={handleDelete} loading={deleting}>
+                  Oui, supprimer définitivement
+                </Button>
+                <Button variant="secondary" onClick={() => setConfirmingDelete(false)}>
+                  Annuler
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </Card>
   );
 }

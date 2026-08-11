@@ -1,4 +1,4 @@
-// apps/studio/src/api/tenants.ts
+//apps/studio/src/api/tenants.ts
 import { ID, Query } from 'appwrite';
 import { databases } from './appwrite';
 import { DATABASE_ID, COLLECTIONS } from '@datainsight/shared';
@@ -29,4 +29,17 @@ export async function createTenant(input: Omit<Tenant, '$id' | 'created_at'>): P
 export async function updateTenant(tenantDocId: string, updates: Partial<Tenant>): Promise<Tenant> {
   const document = await databases.updateDocument(DATABASE_ID, COLLECTIONS.TENANTS, tenantDocId, updates);
   return document as unknown as Tenant;
+}
+
+/**
+ * Supprime uniquement le document tenant lui-même. Les scans déjà soumis
+ * pour ce tenant (scans_restaurant/pharmacie/entreprise), ses rapports et
+ * son historique de facturation ne sont PAS supprimés automatiquement —
+ * volontairement, pour ne jamais perdre de données par accident. Pour un
+ * tenant de test sans données réelles, ça n'a aucune importance ; pour un
+ * vrai client qu'on retire, un nettoyage complet se ferait à la main dans
+ * la console Appwrite si nécessaire.
+ */
+export async function deleteTenant(tenantDocId: string): Promise<void> {
+  await databases.deleteDocument(DATABASE_ID, COLLECTIONS.TENANTS, tenantDocId);
 }

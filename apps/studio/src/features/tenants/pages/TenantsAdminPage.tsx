@@ -23,8 +23,13 @@ export default function TenantsAdminPage() {
     refresh();
   }, []);
 
-  // Supprimé le paramètre non utilisé "tenant"
   function handleSaved() {
+    setShowForm(false);
+    setEditingTenant(undefined);
+    refresh();
+  }
+
+  function handleDeleted() {
     setShowForm(false);
     setEditingTenant(undefined);
     refresh();
@@ -49,7 +54,7 @@ export default function TenantsAdminPage() {
 
       {showForm && (
         <div className="mb-6">
-          <TenantForm existingTenant={editingTenant} onSaved={handleSaved} />
+          <TenantForm existingTenant={editingTenant} onSaved={handleSaved} onDeleted={handleDeleted} />
         </div>
       )}
 
