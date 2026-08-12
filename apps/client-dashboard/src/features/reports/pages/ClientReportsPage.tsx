@@ -1,20 +1,31 @@
-// apps/client-dashboard/src/features/reports/pages/ClientReportsPage.tsx
+//apps/client-dashboard/src/features/reports/pages/ClientReportsPage.tsx
 import { useEffect, useState } from 'react';
 import { getCurrentSession, logout } from '../../../api/auth';
-import { listPublishedReports } from '../../../api/reports';
+import { listPublishedReports, listPublishedDatasetReports } from '../../../api/reports';
 import type { WeeklyReport } from '@datainsight/shared';
+import type { DatasetReport } from '../../../api/reports';
 import ReportCard from '../components/ReportCard';
+import DatasetReportCard from '../components/DatasetReportCard';
 import Logo from '../../../components/Logo';
 import Button from '../../../components/ui/Button';
+import Tabs from '../../../components/ui/Tabs';
+
+type TabId = 'weekly' | 'datasets';
 
 export default function ClientReportsPage() {
-  const [reports, setReports] = useState<WeeklyReport[]>([]);
+  const [activeTab, setActiveTab] = useState<TabId>('weekly');
+  const [weeklyReports, setWeeklyReports] = useState<WeeklyReport[]>([]);
+  const [datasetReports, setDatasetReports] = useState<DatasetReport[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     getCurrentSession().then((session) => {
-      listPublishedReports(session.tenantSlug).then((data) => {
-        setReports(data);
+      Promise.all([
+        listPublishedReports(session.tenantSlug),
+        listPublishedDatasetReports(session.tenantSlug),
+      ]).then(([weekly, datasets]) => {
+        setWeeklyReports(weekly);
+        setDatasetReports(datasets);
         setLoading(false);
       });
     });
@@ -24,6 +35,11 @@ export default function ClientReportsPage() {
     await logout();
     window.location.href = '/login';
   }
+
+  const tabs = [
+    { id: 'weekly', label: `Rapports hebdo${weeklyReports.length > 0 ? ` (${weeklyReports.length})` : ''}` },
+    { id: 'datasets', label: `Analyses spéciales${datasetReports.length > 0 ? ` (${datasetReports.length})` : ''}` },
+  ];
 
   return (
     <div className="min-h-screen bg-statement">
@@ -38,27 +54,49 @@ export default function ClientReportsPage() {
       </header>
 
       <div className="mx-auto max-w-xl px-6 pb-16">
-        <div className="mb-8 text-center">
+        <div className="mb-6 text-center">
           <span className="font-mono text-[11px] uppercase tracking-wider text-neutral-400">Vos rapports</span>
-          <h1 className="font-display text-3xl font-medium text-ink">Bulletin hebdomadaire</h1>
+          <h1 className="font-display text-3xl font-medium text-ink">Bulletin</h1>
         </div>
 
         {loading ? (
           <p className="text-center text-sm text-neutral-400">Chargement...</p>
-        ) : reports.length === 0 ? (
-          <div className="border border-dashed border-neutral-300 px-6 py-12 text-center">
-            <p className="text-sm text-neutral-500">
-              Aucun rapport publié pour le moment. Votre premier bulletin apparaîtra ici dès qu'il sera prêt.
-            </p>
-          </div>
         ) : (
-          <div className="flex flex-col gap-6">
-            {reports.map((report) => (
-              <ReportCard key={report.$id} report={report} />
-            ))}
-          </div>
+          <>
+            <Tabs tabs={tabs} activeId={activeTab} onChange={(id) => setActiveTab(id as TabId)} />
+
+            {activeTab === 'weekly' &&
+              (weeklyReports.length === 0 ? (
+                <EmptyState text="Aucun rapport hebdomadaire publié pour le moment. Votre premier bulletin apparaîtra ici dès qu'il sera prêt." />
+              ) : (
+                <div className="flex flex-col gap-6">
+                  {weeklyReports.map((report) => (
+                    <ReportCard key={report.$id} report={report} />
+                  ))}
+                </div>
+              ))}
+
+            {activeTab === 'datasets' &&
+              (datasetReports.length === 0 ? (
+                <EmptyState text="Aucune analyse spéciale publiée pour le moment. Si vous nous avez transmis des données, elles apparaîtront ici une fois analysées." />
+              ) : (
+                <div className="flex flex-col gap-6">
+                  {datasetReports.map((report) => (
+                    <DatasetReportCard key={report.$id} report={report} />
+                  ))}
+                </div>
+              ))}
+          </>
         )}
       </div>
+    </div>
+  );
+}
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="border border-dashed border-neutral-300 px-6 py-12 text-center">
+      <p className="text-sm text-neutral-500">{text}</p>
     </div>
   );
 }
