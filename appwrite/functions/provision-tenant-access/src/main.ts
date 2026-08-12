@@ -14,14 +14,6 @@ interface ProvisionResult {
   error?: string;
 }
 
-/**
- * Crée (ou réutilise) un compte gérant + une Team dédiée à ce tenant, et
- * relie les deux. Action déclenchée manuellement depuis le Studio via le
- * bouton "Provisionner l'accès client" — rien d'automatique.
- * NOTE : la signature exacte de teams.createMembership() peut varier selon
- * la version de node-appwrite installée — vérifie contre la doc si le build
- * échoue sur cet appel précis.
- */
 export default async ({ req, res, log, error }: any) => {
   let body: RequestPayload;
 
@@ -35,10 +27,14 @@ export default async ({ req, res, log, error }: any) => {
     return res.json({ error: 'tenantDocId manquant.' }, 400);
   }
 
+  log('Étape 0 — payload reçu : ' + JSON.stringify(body));
+
   const client = new Client()
     .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT!)
     .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID!)
     .setKey(process.env.APPWRITE_API_KEY!);
+
+  log('Étape 1 — client initialisé, clé présente : ' + !!process.env.APPWRITE_API_KEY);
 
   const databases = new Databases(client);
   const users = new Users(client);
@@ -47,48 +43,54 @@ export default async ({ req, res, log, error }: any) => {
   const tenantsCollectionId = process.env.APPWRITE_COLLECTION_TENANTS!;
 
   try {
+    log('Étape 2 — avant lecture du tenant, databaseId=' + databaseId + ' collectionId=' + tenantsCollectionId);
     const tenant = (await databases.getDocument(databaseId, tenantsCollectionId, body.tenantDocId)) as any;
+    log('Étape 3 — tenant récupéré : ' + tenant.name);
 
     if (!tenant.contact_email) {
       return res.json({ error: "Ce tenant n'a pas d'email de contact renseigné." }, 400);
     }
 
-    // --- Cas déjà provisionné : on ne recrée rien, on informe juste ---
     if (tenant.client_team_id) {
+      log('Étape 4 — déjà provisionné');
       const result: ProvisionResult = { success: true, alreadyProvisioned: true, email: tenant.contact_email };
       return res.json(result, 200);
     }
 
-    // --- 1. Créer ou récupérer l'utilisateur ---
     let userId: string;
     let tempPassword: string | undefined;
 
+    log('Étape 5 — recherche utilisateur existant pour ' + tenant.contact_email);
     const existingUsers = await users.list([Query.equal('email', tenant.contact_email)]);
+    log('Étape 6 — recherche terminée, trouvés : ' + existingUsers.users.length);
 
     if (existingUsers.users.length > 0) {
       userId = existingUsers.users[0].$id;
-      log(`Utilisateur existant réutilisé pour ${tenant.contact_email}`);
     } else {
       tempPassword = generateTempPassword();
+      log('Étape 7 — création utilisateur');
       const newUser = await users.create(ID.unique(), tenant.contact_email, undefined, tempPassword, tenant.name);
       userId = newUser.$id;
+      log('Étape 8 — utilisateur créé : ' + userId);
     }
 
-    // --- 2. Créer la Team dédiée à ce tenant ---
+    log('Étape 9 — création de la Team');
     const team = await teams.create(ID.unique(), `tenant_${tenant.slug}`);
+    log('Étape 10 — Team créée : ' + team.$id);
 
-    // --- 3. Ajouter l'utilisateur comme membre (sans email d'invitation à confirmer) ---
+    log('Étape 11 — ajout du membre à la Team');
     await teams.createMembership(team.$id, ['member'], undefined, tenant.contact_email, userId);
+    log('Étape 12 — membre ajouté');
 
-    // --- 4. Enregistrer l'ID de la Team sur le tenant ---
     await databases.updateDocument(databaseId, tenantsCollectionId, body.tenantDocId, {
       client_team_id: team.$id,
     });
+    log('Étape 13 — tenant mis à jour, terminé');
 
     const result: ProvisionResult = {
       success: true,
       email: tenant.contact_email,
-      tempPassword, // undefined si l'utilisateur existait déjà
+      tempPassword,
       alreadyProvisioned: false,
     };
 
