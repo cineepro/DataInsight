@@ -13,12 +13,6 @@ const STATUS_TO_BADGE = {
   ANALYZED: 'OPTIMAL',
 } as const;
 
-const STATUS_LABEL = {
-  DRAFT: 'Brouillon',
-  IMPORTED: 'Importé',
-  ANALYZED: 'Analysé',
-} as const;
-
 export default function DatasetList({ datasets, onSelect }: DatasetListProps) {
   if (datasets.length === 0) {
     return <p className="py-6 text-center text-sm text-neutral-400">Aucun dataset importé pour cette structure.</p>;
