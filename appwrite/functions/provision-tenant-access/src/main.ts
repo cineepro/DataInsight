@@ -79,7 +79,13 @@ export default async ({ req, res, log, error }: any) => {
     log('Étape 10 — Team créée : ' + team.$id);
 
     log('Étape 11 — ajout du membre à la Team');
-    await teams.createMembership(team.$id, ['member'], undefined, tenant.contact_email, userId);
+    // Signature node-appwrite: createMembership(teamId, roles, email, userId)
+    await teams.createMembership(
+      team.$id,
+      ['member'],
+      tenant.contact_email,
+      userId
+    );
     log('Étape 12 — membre ajouté');
 
     await databases.updateDocument(databaseId, tenantsCollectionId, body.tenantDocId, {
