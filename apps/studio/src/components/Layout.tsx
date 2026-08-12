@@ -10,6 +10,7 @@ const NAV_LINKS = [
   { to: '/reports', label: 'Rapports' },
   { to: '/billing', label: 'Facturation' },
   { to: '/alerts', label: 'Alertes' },
+  { to: '/datasets', label: 'Données brutes' },
 ];
 
 export default function Layout() {

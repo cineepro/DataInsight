@@ -1,13 +1,20 @@
 //apps/studio/src/ai/generateDirectives.ts
 import { functions } from '../api/appwrite';
-import { buildAnalysisPrompt } from './promptTemplates';
+import { buildAnalysisPrompt, buildDatasetAnalysisPrompt } from './promptTemplates';
 import type { AnalysisResult, Tenant } from '@datainsight/shared';
 
-/**
- * Appelle la Appwrite Function run-claude-analysis (qui détient la clé API
- * Claude côté serveur). Le studio ne parle jamais directement à l'API
- * Anthropic depuis le navigateur.
- */
+async function callClaudeFunction(prompt: string): Promise<string> {
+  const functionId = import.meta.env.VITE_FUNCTION_RUN_CLAUDE_ANALYSIS;
+  const execution = await functions.createExecution(functionId, JSON.stringify({ prompt }), false);
+
+  if (execution.responseStatusCode !== 200) {
+    throw new Error("Erreur lors de la génération des directives par l'IA.");
+  }
+
+  const parsed = JSON.parse(execution.responseBody) as { directives: string };
+  return parsed.directives;
+}
+
 export async function generateDirectives(
   tenant: Tenant,
   period: string,
@@ -19,14 +26,21 @@ export async function generateDirectives(
     period,
     results,
   });
+  return callClaudeFunction(prompt);
+}
 
-  const functionId = import.meta.env.VITE_FUNCTION_RUN_CLAUDE_ANALYSIS;
-  const execution = await functions.createExecution(functionId, JSON.stringify({ prompt }), false);
-
-  if (execution.responseStatusCode !== 200) {
-    throw new Error("Erreur lors de la génération des directives par l'IA.");
-  }
-
-  const parsed = JSON.parse(execution.responseBody) as { directives: string };
-  return parsed.directives;
+export async function generateDatasetDirectives(
+  tenant: Tenant,
+  datasetName: string,
+  period: string,
+  results: AnalysisResult[]
+): Promise<string> {
+  const prompt = buildDatasetAnalysisPrompt({
+    tenantName: tenant.name,
+    category: tenant.category,
+    datasetName,
+    period,
+    results,
+  });
+  return callClaudeFunction(prompt);
 }

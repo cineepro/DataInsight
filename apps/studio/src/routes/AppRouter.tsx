@@ -13,6 +13,9 @@ import CustomersPage from '../features/customers/pages/CustomersPage';
 import BillingPage from '../features/billing/pages/BillingPage';
 import AlertsPage from '../features/alerts/pages/AlertsPage';
 
+import DatasetsPage from '../features/datasets/pages/DatasetsPage';
+import DatasetDetailPage from '../features/datasets/pages/DatasetDetailPage';
+
 interface AuthState {
   session: AdminSession | null;
   loading: boolean;
@@ -57,6 +60,8 @@ export default function AppRouter() {
           <Route path="/customers" element={<CustomersPage />} />
           <Route path="/billing" element={<BillingPage />} />
           <Route path="/alerts" element={<AlertsPage />} />
+          <Route path="/datasets" element={<DatasetsPage />} />
+          <Route path="/datasets/:id" element={<DatasetDetailPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
