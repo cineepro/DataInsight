@@ -11,6 +11,7 @@ import ContactFields from '../../components/ui/ContactFields';
 import Button from '../../components/ui/Button';
 import SubmittedScreen from '../../components/ui/SubmittedScreen';
 import { submitRestaurantScan } from './submitRestaurantScan';
+import ProductPicker from '../../components/ui/ProductPicker';
 import type {
   ZoneRestaurant,
   WaitTimeBucketRestaurant,
@@ -61,6 +62,7 @@ export default function RestaurantForm() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [products, setProducts] = useState<string[]>([]);
 
   if (loading) {
     return (
@@ -90,19 +92,20 @@ export default function RestaurantForm() {
     setSubmitError(null);
     try {
       await submitRestaurantScan(
-        slug,
-        {
-          zone,
-          satisfaction_global: satisfactionGlobal!,
-          satisfaction_plat: satisfactionPlat,
-          wait_time_bucket: waitTime,
-          service_quality: serviceQuality,
-          visit_type: visitType,
-          visit_frequency: visitFrequency,
-          comment: comment || undefined,
-        },
-        { phone: phone || undefined, name: name || undefined }
-      );
+  slug,
+  {
+    zone,
+    satisfaction_global: satisfactionGlobal!,
+    satisfaction_plat: satisfactionPlat,
+    wait_time_bucket: waitTime,
+    service_quality: serviceQuality,
+    visit_type: visitType,
+    visit_frequency: visitFrequency,
+    products: products.length > 0 ? products : undefined,
+    comment: comment || undefined,
+  },
+  { phone: phone || undefined, name: name || undefined }
+);
       setSubmitted(true);
     } catch (err) {
       console.error(err);
@@ -135,6 +138,10 @@ export default function RestaurantForm() {
           />
 
           <TicketDivider label="Détails" />
+
+          {tenant.menuItems && tenant.menuItems.length > 0 && (
+            <ProductPicker menuItems={tenant.menuItems} selected={products} onChange={setProducts} />
+        )}
 
           <StarRating label="Qualité du plat / boisson" value={satisfactionPlat} onChange={setSatisfactionPlat} />
           <StarRating label="Qualité de l'accueil / service" value={serviceQuality} onChange={setServiceQuality} />

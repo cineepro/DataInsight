@@ -9,13 +9,9 @@ interface TenantPublicInfo {
   name: string;
   logo_url?: string;
   category: string;
+  menuItems?: string[];
 }
 
-/**
- * Reçoit { slug } depuis apps/collect (appel PUBLIC, sans session).
- * Retourne UNIQUEMENT { name, logo_url, category } — jamais l'email,
- * l'adresse ou le statut du tenant, même si la clé API du serveur y a accès.
- */
 export default async ({ req, res, log, error }: any) => {
   let body: RequestPayload;
 
@@ -35,13 +31,13 @@ export default async ({ req, res, log, error }: any) => {
     .setKey(process.env.APPWRITE_API_KEY!);
 
   const databases = new Databases(client);
+  const databaseId = process.env.APPWRITE_DATABASE_ID!;
 
   try {
-    const result = await databases.listDocuments(
-      process.env.APPWRITE_DATABASE_ID!,
-      process.env.APPWRITE_COLLECTION_TENANTS!,
-      [Query.equal('slug', body.slug), Query.limit(1)]
-    );
+    const result = await databases.listDocuments(databaseId, process.env.APPWRITE_COLLECTION_TENANTS!, [
+      Query.equal('slug', body.slug),
+      Query.limit(1),
+    ]);
 
     if (result.documents.length === 0) {
       return res.json({ error: 'Structure introuvable.' }, 404);
@@ -49,12 +45,23 @@ export default async ({ req, res, log, error }: any) => {
 
     const doc = result.documents[0] as any;
 
-    // Exposition minimale volontaire : on ne recopie QUE ces 3 champs.
     const publicInfo: TenantPublicInfo = {
       name: doc.name,
       logo_url: doc.logo_url,
       category: doc.category,
     };
+
+    // Le menu n'est chargé que pour les catégories concernées, pour ne
+    // pas faire de requête inutile sur pharmacie/entreprise.
+    if (doc.category === 'RESTAURANT' || doc.category === 'FASTFOOD') {
+      const menuResult = await databases.listDocuments(databaseId, process.env.APPWRITE_COLLECTION_MENU_ITEMS!, [
+        Query.equal('tenant_id', body.slug),
+        Query.equal('active', true),
+        Query.orderAsc('name'),
+        Query.limit(200),
+      ]);
+      publicInfo.menuItems = menuResult.documents.map((item: any) => item.name);
+    }
 
     return res.json(publicInfo, 200);
   } catch (err) {

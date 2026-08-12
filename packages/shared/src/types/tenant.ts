@@ -12,7 +12,7 @@ export interface Tenant {
   phone?: string;
   contact_email?: string;
   status: TenantStatus;
-  client_team_id?: string; // rempli une fois l'accès dashboard provisionné
+  client_team_id?: string;
   subscription_started_at?: string;
   created_at: string;
 }
@@ -21,4 +21,5 @@ export interface TenantPublicInfo {
   name: string;
   logo_url?: string;
   category: TenantCategory;
+  menuItems?: string[]; // noms des plats actifs — uniquement pour RESTAURANT/FASTFOOD
 }

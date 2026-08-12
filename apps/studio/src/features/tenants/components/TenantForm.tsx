@@ -7,6 +7,7 @@ import Select from '../../../components/ui/Select';
 import Button from '../../../components/ui/Button';
 import Card from '../../../components/ui/Card';
 import ProvisionAccessButton from './ProvisionAccessButton';
+import MenuManager from './MenuManager';
 
 const CATEGORY_OPTIONS = [
   { label: 'Restaurant', value: 'RESTAURANT' },
@@ -177,6 +178,10 @@ export default function TenantForm({ existingTenant, onSaved, onDeleted }: Tenan
       {existingTenant && (
         <div className="mt-4 flex flex-col gap-3 border-t border-neutral-200 pt-4">
           <ProvisionAccessButton tenant={existingTenant} onProvisioned={() => onSaved(existingTenant)} />
+
+          {existingTenant && (existingTenant.category === 'RESTAURANT' || existingTenant.category === 'FASTFOOD') && (
+            <MenuManager tenantSlug={existingTenant.slug} />
+          )}
 
           {!confirmingDelete ? (
             <button

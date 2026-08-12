@@ -1,4 +1,4 @@
-//packages/shared/src/appwrite/config.ts
+// packages/shared/src/appwrite/config.ts
 export const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
 
 export const COLLECTIONS = {
@@ -13,6 +13,7 @@ export const COLLECTIONS = {
   SUBSCRIPTIONS: import.meta.env.VITE_COLLECTION_SUBSCRIPTIONS,
   PAYMENT_TRANSACTIONS: import.meta.env.VITE_COLLECTION_PAYMENT_TRANSACTIONS,
   ALERTS_LOG: import.meta.env.VITE_COLLECTION_ALERTS_LOG,
+  MENU_ITEMS: import.meta.env.VITE_COLLECTION_MENU_ITEMS,
 } as const;
 
 export const TEAMS = {
