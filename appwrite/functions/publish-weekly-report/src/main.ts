@@ -45,12 +45,12 @@ export default async ({ req, res, log, error }: any) => {
     // Permissions du document : admins/analysts gardent tout accès,
     // + lecture pour la Team du tenant SI l'accès client a été provisionné.
     const permissions = [
-      Permission.read(Role.team('admins')),
-      Permission.read(Role.team('analysts')),
-      Permission.update(Role.team('admins')),
-      Permission.update(Role.team('analysts')),
-      Permission.delete(Role.team('admins')),
-    ];
+  Permission.read(Role.team(process.env.APPWRITE_TEAM_ADMINS_ID!)),
+  Permission.read(Role.team(process.env.APPWRITE_TEAM_ANALYSTS_ID!)),
+  Permission.update(Role.team(process.env.APPWRITE_TEAM_ADMINS_ID!)),
+  Permission.update(Role.team(process.env.APPWRITE_TEAM_ANALYSTS_ID!)),
+  Permission.delete(Role.team(process.env.APPWRITE_TEAM_ADMINS_ID!)),
+];
 
     if (tenant?.client_team_id) {
       permissions.push(Permission.read(Role.team(tenant.client_team_id)));

@@ -275,24 +275,17 @@ export async function listReportsForTenant(tenantId: string): Promise<DatasetRep
 // ---------------- Ajout à api/datasets.ts : publication ----------------
 import { Permission, Role } from 'appwrite';
 import { getTenantBySlug } from './tenants';
+import { TEAM_IDS } from '@datainsight/shared';
 
-/**
- * Publie un rapport de dataset : marque le statut PUBLISHED et accorde la
- * lecture à la Team du tenant (si l'accès client a été provisionné) —
- * même principe que publish-weekly-report, mais fait ici directement côté
- * client puisque les comptes admins/analysts ont déjà le droit de modifier
- * les permissions de leurs propres documents (pas besoin d'une Function
- * serveur dédiée pour cette opération précise).
- */
 export async function publishDatasetReport(reportDocId: string, analystId: string, tenantSlug: string): Promise<DatasetReport> {
   const tenant = await getTenantBySlug(tenantSlug);
 
   const permissions = [
-    Permission.read(Role.team('admins')),
-    Permission.read(Role.team('analysts')),
-    Permission.update(Role.team('admins')),
-    Permission.update(Role.team('analysts')),
-    Permission.delete(Role.team('admins')),
+    Permission.read(Role.team(TEAM_IDS.ADMINS)),
+    Permission.read(Role.team(TEAM_IDS.ANALYSTS)),
+    Permission.update(Role.team(TEAM_IDS.ADMINS)),
+    Permission.update(Role.team(TEAM_IDS.ANALYSTS)),
+    Permission.delete(Role.team(TEAM_IDS.ADMINS)),
   ];
 
   if (tenant?.client_team_id) {

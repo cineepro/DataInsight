@@ -1,4 +1,4 @@
-// packages/shared/src/appwrite/config.ts
+//packages/shared/src/appwrite/config.ts
 export const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
 
 export const COLLECTIONS = {
@@ -20,9 +20,20 @@ export const COLLECTIONS = {
   DATASET_REPORTS: import.meta.env.VITE_COLLECTION_DATASET_REPORTS,
 } as const;
 
+// TEAMS : noms lisibles, utilisés uniquement pour COMPARER l'appartenance
+// (ex: getCurrentSession() qui lit team.name depuis teams.list()).
 export const TEAMS = {
   ADMINS: 'admins',
   ANALYSTS: 'analysts',
+} as const;
+
+// TEAM_IDS : identifiants techniques réels, seuls valides pour construire
+// des permissions avec Role.team(id) — Appwrite refuse un nom, uniquement
+// l'ID généré à la création de la Team (visible dans Auth → Teams → ouvrir
+// la Team → copier l'ID affiché en haut de la page).
+export const TEAM_IDS = {
+  ADMINS: import.meta.env.VITE_TEAM_ADMINS_ID,
+  ANALYSTS: import.meta.env.VITE_TEAM_ANALYSTS_ID,
 } as const;
 
 export function tenantTeamName(slug: string): string {
