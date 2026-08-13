@@ -1,6 +1,7 @@
 //apps/studio/src/api/datasets.ts
 import { ID, Query } from 'appwrite';
-import { databases } from './appwrite';
+//import { databases } from './appwrite';
+import { databases, functions } from './appwrite';
 import { DATABASE_ID, COLLECTIONS } from '@datainsight/shared';
 import type {
   DatasetColumnDef,
@@ -273,52 +274,36 @@ export async function listReportsForTenant(tenantId: string): Promise<DatasetRep
 }
 
 // ---------------- Publication (permissions posées directement côté client) ----------------
-import { Permission, Role } from 'appwrite';
-import { getTenantBySlug } from './tenants';
-import { TEAM_IDS } from '@datainsight/shared';
+//import { functions } from './appwrite';
 
-/**
- * Publie un rapport de dataset : marque le statut PUBLISHED et accorde la
- * lecture à la Team du tenant si l'accès client a été provisionné.
- * Fait directement via le SDK client (pas de Function) — un compte
- * admin/analyste a déjà le droit de modifier les permissions de ses
- * propres documents, donc aucun intermédiaire serveur n'est nécessaire ici.
- */
+interface PublishFunctionResponse {
+  success: boolean;
+  report?: DatasetReport;
+  error?: string;
+}
+
 export async function publishDatasetReport(
   reportDocId: string,
   analystId: string,
-  tenantSlug: string
+  _tenantSlug: string
 ): Promise<DatasetReport> {
-  const tenant = await getTenantBySlug(tenantSlug);
+  const functionId = import.meta.env.VITE_FUNCTION_PUBLISH_DATASET_REPORT;
 
-  const permissions = [
-    Permission.read(Role.team(TEAM_IDS.ADMINS)),
-    Permission.update(Role.team(TEAM_IDS.ADMINS)),
-    Permission.delete(Role.team(TEAM_IDS.ADMINS)),
-  ];
-
-  // N'ajoute les permissions "analysts" que si cette Team existe (évite
-  // d'envoyer "team:undefined" si tu n'as pas encore créé cette Team).
-  if (TEAM_IDS.ANALYSTS) {
-    permissions.push(Permission.read(Role.team(TEAM_IDS.ANALYSTS)));
-    permissions.push(Permission.update(Role.team(TEAM_IDS.ANALYSTS)));
-  }
-
-  if (tenant?.client_team_id) {
-    permissions.push(Permission.read(Role.team(tenant.client_team_id)));
-  }
-
-  const updated = await databases.updateDocument(
-    DATABASE_ID,
-    COLLECTIONS.DATASET_REPORTS,
-    reportDocId,
-    {
-      status: 'PUBLISHED',
-      analyst_id: analystId,
-      published_at: new Date().toISOString(),
-    },
-    permissions
+  const execution = await functions.createExecution(
+    functionId,
+    JSON.stringify({ reportId: reportDocId, analystId }),
+    false
   );
 
-  return updated as unknown as DatasetReport;
+  if (execution.responseStatusCode !== 200) {
+    throw new Error('Erreur lors de la publication du rapport.');
+  }
+
+  const parsed = JSON.parse(execution.responseBody) as PublishFunctionResponse;
+
+  if (!parsed.success || !parsed.report) {
+    throw new Error(parsed.error ?? 'Publication échouée.');
+  }
+
+  return parsed.report;
 }
