@@ -40,7 +40,7 @@ export default async ({ req, res, log, error }: any) => {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-5',
-        max_tokens: 1000,
+        max_tokens: 2000,
         messages: [{ role: 'user', content: body.prompt }],
       }),
     });
