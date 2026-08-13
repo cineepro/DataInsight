@@ -1,9 +1,10 @@
-// apps/client-dashboard/src/routes/AppRouter.tsx
+//apps/client-dashboard/src/routes/AppRouter.tsx
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { getCurrentSession, type ClientSession } from '../api/auth';
 import LoginPage from '../features/auth/pages/LoginPage';
 import ClientReportsPage from '../features/reports/pages/ClientReportsPage';
+import StatisticsPage from '../features/statistics/pages/StatisticsPage';
 
 interface AuthState {
   session: ClientSession | null;
@@ -36,10 +37,18 @@ export default function AppRouter() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route
-          path="/*"
+          path="/"
           element={
             <ProtectedRoute>
               <ClientReportsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/statistics"
+          element={
+            <ProtectedRoute>
+              <StatisticsPage />
             </ProtectedRoute>
           }
         />

@@ -11,6 +11,7 @@ const NAV_LINKS = [
   { to: '/billing', label: 'Facturation' },
   { to: '/alerts', label: 'Alertes' },
   { to: '/datasets', label: 'Données brutes' },
+  { to: '/statistics', label: 'Statistiques' },
 ];
 
 export default function Layout() {

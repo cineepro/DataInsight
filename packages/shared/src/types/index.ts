@@ -6,3 +6,4 @@ export * from './customer';
 export * from './billing';
 export * from './alert';
 export * from './menuItem';
+export * from './statistics';

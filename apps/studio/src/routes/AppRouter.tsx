@@ -16,6 +16,8 @@ import AlertsPage from '../features/alerts/pages/AlertsPage';
 import DatasetsPage from '../features/datasets/pages/DatasetsPage';
 import DatasetDetailPage from '../features/datasets/pages/DatasetDetailPage';
 
+import StatisticsPage from '../features/statistics/pages/StatisticsPage';
+
 interface AuthState {
   session: AdminSession | null;
   loading: boolean;
@@ -62,6 +64,7 @@ export default function AppRouter() {
           <Route path="/alerts" element={<AlertsPage />} />
           <Route path="/datasets" element={<DatasetsPage />} />
           <Route path="/datasets/:id" element={<DatasetDetailPage />} />
+          <Route path="/statistics" element={<StatisticsPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

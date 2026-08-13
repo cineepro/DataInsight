@@ -251,6 +251,7 @@ export default async ({ req, res, log, error }: any) => {
 
     return res.json(
       {
+        category, // NOUVEAU — renvoyé directement, plus besoin de le deviner côté front
         block_label: `Semaines ${firstWeek.week}-${lastWeek.week} — ${firstWeek.year}`,
         weeks: blockWeeks.map((w) => w.week),
         performance,
