@@ -1,6 +1,6 @@
 // appwrite/functions/submit-scan/src/main.ts
 import { Client, Databases, Query, ID } from 'node-appwrite';
-import { hashVisitor, extractClientIp } from './hashVisitor';
+import { hashVisitor, hashVisitorToken, extractClientIp } from './hashVisitor';
 
 type ScanCategory = 'RESTAURANT' | 'FASTFOOD' | 'PHARMACIE' | 'ENTREPRISE';
 
@@ -10,6 +10,7 @@ interface SubmitScanPayload {
   data: Record<string, unknown>;
   phone?: string;
   name?: string;
+  visitor_token?: string | null; // NOUVEAU — jeton généré côté navigateur (apps/collect)
 }
 
 const RATE_LIMIT_MAX_PER_HOUR = 5;
@@ -73,18 +74,22 @@ export default async ({ req, res, log, error }: any) => {
       return res.json({ error: 'Collecte suspendue pour cette structure.' }, 403);
     }
 
-    // --- 2. Calculer l'empreinte visiteur (jamais l'IP en clair) ---
+    // --- 2. Calculer les empreintes visiteur ---
+    // ipHash : utilisé uniquement pour l'anti-abus (rate limit), basé sur le réseau.
+    // tokenHash : signal PRINCIPAL de reconnaissance du visiteur, basé sur
+    // le jeton généré côté navigateur — beaucoup plus fiable que l'IP seule.
     const ip = extractClientIp(req.headers ?? {});
     const userAgent = req.headers?.['user-agent'] ?? 'unknown';
-    const visitorHash = hashVisitor(ip, body.tenant_slug, userAgent);
+    const ipHash = hashVisitor(ip, body.tenant_slug, userAgent);
+    const tokenHash = body.visitor_token ? hashVisitorToken(body.visitor_token, body.tenant_slug) : null;
 
-    // --- 3. Anti-abus : compter les soumissions récentes de cette empreinte ---
+    // --- 3. Anti-abus : compter les soumissions récentes depuis ce réseau ---
     const rateLimitCollectionId = process.env.APPWRITE_COLLECTION_RATE_LIMIT_EVENTS!;
     const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
 
     const recentSubmissions = await databases.listDocuments(databaseId, rateLimitCollectionId, [
       Query.equal('tenant_id', body.tenant_slug),
-      Query.equal('visitor_hash', visitorHash),
+      Query.equal('visitor_hash', ipHash),
       Query.greaterThan('timestamp', windowStart),
       Query.limit(RATE_LIMIT_MAX_PER_HOUR + 1),
     ]);
@@ -95,7 +100,7 @@ export default async ({ req, res, log, error }: any) => {
 
     await databases.createDocument(databaseId, rateLimitCollectionId, ID.unique(), {
       tenant_id: body.tenant_slug,
-      visitor_hash: visitorHash,
+      visitor_hash: ipHash,
       timestamp: new Date().toISOString(),
     });
 
@@ -106,8 +111,11 @@ export default async ({ req, res, log, error }: any) => {
 
     const normalizedPhone = body.phone ? normalizePhone(body.phone) : undefined;
 
-    // Priorité au téléphone (signal fort et volontaire) s'il est fourni,
-    // sinon on retombe sur l'empreinte visiteur (signal automatique).
+    // Ordre de priorité pour reconnaître un visiteur qui revient :
+    // 1. Téléphone (signal volontaire, le plus fiable)
+    // 2. Jeton d'appareil (fiable, spécifique à ce téléphone précis)
+    // 3. IP+user-agent (dernier recours seulement, si le navigateur bloque
+    //    le stockage local — ex: navigation privée)
     let existingCustomer: any = null;
 
     if (normalizedPhone) {
@@ -119,22 +127,33 @@ export default async ({ req, res, log, error }: any) => {
       existingCustomer = byPhone.documents[0] ?? null;
     }
 
-    if (!existingCustomer) {
-      const byHash = await databases.listDocuments(databaseId, customersCollectionId, [
+    if (!existingCustomer && tokenHash) {
+      const byToken = await databases.listDocuments(databaseId, customersCollectionId, [
         Query.equal('tenant_id', body.tenant_slug),
-        Query.equal('visitor_hash', visitorHash),
+        Query.equal('visitor_hash', tokenHash),
         Query.limit(1),
       ]);
-      existingCustomer = byHash.documents[0] ?? null;
+      existingCustomer = byToken.documents[0] ?? null;
     }
+
+    if (!existingCustomer && !tokenHash) {
+      const byIp = await databases.listDocuments(databaseId, customersCollectionId, [
+        Query.equal('tenant_id', body.tenant_slug),
+        Query.equal('visitor_hash', ipHash),
+        Query.limit(1),
+      ]);
+      existingCustomer = byIp.documents[0] ?? null;
+    }
+
+    // La valeur stockée dans customers.visitor_hash pour une NOUVELLE fiche :
+    // le tokenHash si disponible (cas normal), sinon l'ipHash en repli.
+    const effectiveHash = tokenHash ?? ipHash;
 
     if (existingCustomer) {
       const updated = await databases.updateDocument(databaseId, customersCollectionId, existingCustomer.$id, {
         last_seen: now.toISOString(),
         visit_count: (existingCustomer.visit_count ?? 0) + 1,
         status: 'ACTIVE',
-        // On complète le profil si le client donne enfin son nom/téléphone
-        // sur une visite ultérieure, sans écraser des infos déjà connues.
         phone: normalizedPhone ?? existingCustomer.phone,
         name: body.name ?? existingCustomer.name,
       });
@@ -144,7 +163,7 @@ export default async ({ req, res, log, error }: any) => {
         tenant_id: body.tenant_slug,
         phone: normalizedPhone,
         name: body.name,
-        visitor_hash: visitorHash,
+        visitor_hash: effectiveHash,
         first_seen: now.toISOString(),
         last_seen: now.toISOString(),
         visit_count: 1,

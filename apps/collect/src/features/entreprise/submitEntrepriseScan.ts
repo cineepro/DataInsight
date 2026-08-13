@@ -1,5 +1,6 @@
 // apps/collect/src/features/entreprise/submitEntrepriseScan.ts
 import { functions } from '../../api/client';
+import { getOrCreateVisitorToken } from '../../utils/visitorToken';
 import type { ScanEntreprise } from '@datainsight/shared';
 
 interface SubmitResult {
@@ -26,6 +27,7 @@ export async function submitEntrepriseScan(
       data: input,
       phone: contact?.phone,
       name: contact?.name,
+      visitor_token: getOrCreateVisitorToken(),
     }),
     false
   );

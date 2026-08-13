@@ -1,5 +1,6 @@
 //apps/collect/src/features/pharmacie/submitPharmacieScan.ts
 import { functions } from '../../api/client';
+import { getOrCreateVisitorToken } from '../../utils/visitorToken';
 import type { ScanPharmacie } from '@datainsight/shared';
 
 interface SubmitResult {
@@ -26,6 +27,7 @@ export async function submitPharmacieScan(
       data: input,
       phone: contact?.phone,
       name: contact?.name,
+      visitor_token: getOrCreateVisitorToken(),
     }),
     false
   );
