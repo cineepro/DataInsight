@@ -1,6 +1,8 @@
 //apps/studio/src/api/datasets.ts
 import { ID, Query } from 'appwrite';
-import { databases } from './appwrite';
+//import { databases } from './appwrite';
+// ✅ Après (ajoutez "functions")
+import { databases, functions } from './appwrite';
 import { DATABASE_ID, COLLECTIONS } from '@datainsight/shared';
 import type {
   DatasetColumnDef,
@@ -272,37 +274,33 @@ export async function listReportsForTenant(tenantId: string): Promise<DatasetRep
   return response.documents as unknown as DatasetReport[];
 }
 
-// ---------------- Ajout à api/datasets.ts : publication ----------------
-import { Permission, Role } from 'appwrite';
-import { getTenantBySlug } from './tenants';
-import { TEAM_IDS } from '@datainsight/shared';
+// ---------------- Publication via la Fonction Server Appwrite ----------------
 
-export async function publishDatasetReport(reportDocId: string, analystId: string, tenantSlug: string): Promise<DatasetReport> {
-  const tenant = await getTenantBySlug(tenantSlug);
-
-  const permissions = [
-    Permission.read(Role.team(TEAM_IDS.ADMINS)),
-    Permission.read(Role.team(TEAM_IDS.ANALYSTS)),
-    Permission.update(Role.team(TEAM_IDS.ADMINS)),
-    Permission.update(Role.team(TEAM_IDS.ANALYSTS)),
-    Permission.delete(Role.team(TEAM_IDS.ADMINS)),
-  ];
-
-  if (tenant?.client_team_id) {
-    permissions.push(Permission.read(Role.team(tenant.client_team_id)));
-  }
-
-  const updated = await databases.updateDocument(
-    DATABASE_ID,
-    COLLECTIONS.DATASET_REPORTS,
-    reportDocId,
-    {
-      status: 'PUBLISHED',
-      analyst_id: analystId,
-      published_at: new Date().toISOString(),
-    },
-    permissions
+export async function publishDatasetReport(
+  reportDocId: string, 
+  analystId: string, 
+  _tenantSlug: string
+): Promise<DatasetReport> {
+  // Exécute la fonction backend Appwrite avec la clé API Admin
+  // (Résout l'erreur de permissions 401 côté navigateur)
+  const execution = await functions.createExecution(
+    'publish-weekly-report', // Remplacez par l'ID exact de votre fonction Appwrite si différent
+    JSON.stringify({
+      reportId: reportDocId,
+      analystId: analystId
+    })
   );
 
-  return updated as unknown as DatasetReport;
+  // Vérification de la réponse du serveur
+  if (execution.status === 'failed') {
+    throw new Error('Échec de l\'exécution de la fonction de publication.');
+  }
+
+  const response = JSON.parse(execution.responseBody || '{}');
+
+  if (response.error) {
+    throw new Error(response.error);
+  }
+
+  return response.report as DatasetReport;
 }
