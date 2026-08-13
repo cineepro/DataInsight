@@ -1,8 +1,6 @@
 //apps/studio/src/api/datasets.ts
 import { ID, Query } from 'appwrite';
-//import { databases } from './appwrite';
-// ✅ Après (ajoutez "functions")
-import { databases, functions } from './appwrite';
+import { databases } from './appwrite';
 import { DATABASE_ID, COLLECTIONS } from '@datainsight/shared';
 import type {
   DatasetColumnDef,
@@ -274,33 +272,53 @@ export async function listReportsForTenant(tenantId: string): Promise<DatasetRep
   return response.documents as unknown as DatasetReport[];
 }
 
-// ---------------- Publication via la Fonction Server Appwrite ----------------
+// ---------------- Publication (permissions posées directement côté client) ----------------
+import { Permission, Role } from 'appwrite';
+import { getTenantBySlug } from './tenants';
+import { TEAM_IDS } from '@datainsight/shared';
 
+/**
+ * Publie un rapport de dataset : marque le statut PUBLISHED et accorde la
+ * lecture à la Team du tenant si l'accès client a été provisionné.
+ * Fait directement via le SDK client (pas de Function) — un compte
+ * admin/analyste a déjà le droit de modifier les permissions de ses
+ * propres documents, donc aucun intermédiaire serveur n'est nécessaire ici.
+ */
 export async function publishDatasetReport(
-  reportDocId: string, 
-  analystId: string, 
-  _tenantSlug: string
+  reportDocId: string,
+  analystId: string,
+  tenantSlug: string
 ): Promise<DatasetReport> {
-  // Exécute la fonction backend Appwrite avec la clé API Admin
-  // (Résout l'erreur de permissions 401 côté navigateur)
-  const execution = await functions.createExecution(
-    'publish-weekly-report', // Remplacez par l'ID exact de votre fonction Appwrite si différent
-    JSON.stringify({
-      reportId: reportDocId,
-      analystId: analystId
-    })
+  const tenant = await getTenantBySlug(tenantSlug);
+
+  const permissions = [
+    Permission.read(Role.team(TEAM_IDS.ADMINS)),
+    Permission.update(Role.team(TEAM_IDS.ADMINS)),
+    Permission.delete(Role.team(TEAM_IDS.ADMINS)),
+  ];
+
+  // N'ajoute les permissions "analysts" que si cette Team existe (évite
+  // d'envoyer "team:undefined" si tu n'as pas encore créé cette Team).
+  if (TEAM_IDS.ANALYSTS) {
+    permissions.push(Permission.read(Role.team(TEAM_IDS.ANALYSTS)));
+    permissions.push(Permission.update(Role.team(TEAM_IDS.ANALYSTS)));
+  }
+
+  if (tenant?.client_team_id) {
+    permissions.push(Permission.read(Role.team(tenant.client_team_id)));
+  }
+
+  const updated = await databases.updateDocument(
+    DATABASE_ID,
+    COLLECTIONS.DATASET_REPORTS,
+    reportDocId,
+    {
+      status: 'PUBLISHED',
+      analyst_id: analystId,
+      published_at: new Date().toISOString(),
+    },
+    permissions
   );
 
-  // Vérification de la réponse du serveur
-  if (execution.status === 'failed') {
-    throw new Error('Échec de l\'exécution de la fonction de publication.');
-  }
-
-  const response = JSON.parse(execution.responseBody || '{}');
-
-  if (response.error) {
-    throw new Error(response.error);
-  }
-
-  return response.report as DatasetReport;
+  return updated as unknown as DatasetReport;
 }
