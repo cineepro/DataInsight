@@ -1,10 +1,13 @@
-// apps/studio/src/features/studio/reports/pages/ReportsHistoryPage.tsx
+//apps/studio/src/features/studio/reports/pages/ReportsHistoryPage.tsx
 import { useEffect, useState } from 'react';
 import type { Tenant, TenantCategory, WeeklyReport } from '@datainsight/shared';
 import { listTenants } from '../../../../api/tenants';
-import { listReportsForTenant } from '../../../../api/reports';
+import { listReportsForTenant as listWeeklyReportsForTenant } from '../../../../api/reports';
+import { listReportsForTenant as listDatasetReportsForTenant, type DatasetReport } from '../../../../api/datasets';
 import Select from '../../../../components/ui/Select';
+import Tabs from '../../../../components/ui/Tabs';
 import ReportEditor from '../components/ReportEditor';
+import DatasetReportEditor from '../components/DatasetReportEditor';
 
 const CATEGORY_OPTIONS = [
   { label: 'Restauration', value: 'RESTAURANT' },
@@ -13,11 +16,15 @@ const CATEGORY_OPTIONS = [
   { label: 'Entreprise', value: 'ENTREPRISE' },
 ];
 
+type TabId = 'weekly' | 'datasets';
+
 export default function ReportsHistoryPage() {
+  const [activeTab, setActiveTab] = useState<TabId>('weekly');
   const [category, setCategory] = useState<TenantCategory | ''>('');
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [tenantId, setTenantId] = useState('');
-  const [reports, setReports] = useState<WeeklyReport[]>([]);
+  const [weeklyReports, setWeeklyReports] = useState<WeeklyReport[]>([]);
+  const [datasetReports, setDatasetReports] = useState<DatasetReport[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -28,23 +35,37 @@ export default function ReportsHistoryPage() {
     listTenants(category).then(setTenants);
   }, [category]);
 
+  const selectedTenant = tenants.find((t) => t.$id === tenantId);
+
   useEffect(() => {
-    if (!tenantId) {
-      setReports([]);
+    if (!selectedTenant) {
+      setWeeklyReports([]);
+      setDatasetReports([]);
       return;
     }
-    const tenant = tenants.find((t) => t.$id === tenantId);
-    if (!tenant) return;
     setLoading(true);
-    listReportsForTenant(tenant.slug).then((data) => {
-      setReports(data);
+    Promise.all([
+      listWeeklyReportsForTenant(selectedTenant.slug),
+      listDatasetReportsForTenant(selectedTenant.slug),
+    ]).then(([weekly, datasets]) => {
+      setWeeklyReports(weekly);
+      setDatasetReports(datasets);
       setLoading(false);
     });
-  }, [tenantId, tenants]);
+  }, [selectedTenant]);
 
-  function handleUpdated(updated: WeeklyReport) {
-    setReports((prev) => prev.map((r) => (r.$id === updated.$id ? updated : r)));
+  function handleWeeklyUpdated(updated: WeeklyReport) {
+    setWeeklyReports((prev) => prev.map((r) => (r.$id === updated.$id ? updated : r)));
   }
+
+  function handleDatasetUpdated(updated: DatasetReport) {
+    setDatasetReports((prev) => prev.map((r) => (r.$id === updated.$id ? updated : r)));
+  }
+
+  const tabs = [
+    { id: 'weekly', label: `Rapports hebdo${weeklyReports.length > 0 ? ` (${weeklyReports.length})` : ''}` },
+    { id: 'datasets', label: `Données brutes${datasetReports.length > 0 ? ` (${datasetReports.length})` : ''}` },
+  ];
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-8">
@@ -77,16 +98,35 @@ export default function ReportsHistoryPage() {
         </div>
       </div>
 
-      {loading && <p className="text-sm text-neutral-400">Chargement...</p>}
+      {!selectedTenant ? (
+        <p className="text-sm text-neutral-400">Choisissez une structure pour voir ses rapports.</p>
+      ) : (
+        <>
+          <Tabs tabs={tabs} activeId={activeTab} onChange={(id) => setActiveTab(id as TabId)} />
 
-      <div className="flex flex-col gap-3">
-        {reports.map((report) => (
-          <ReportEditor key={report.$id} report={report} onUpdated={handleUpdated} />
-        ))}
-        {!loading && tenantId && reports.length === 0 && (
-          <p className="text-sm text-neutral-400">Aucun rapport pour cette structure.</p>
-        )}
-      </div>
+          {loading ? (
+            <p className="text-sm text-neutral-400">Chargement...</p>
+          ) : activeTab === 'weekly' ? (
+            <div className="flex flex-col gap-3">
+              {weeklyReports.map((report) => (
+                <ReportEditor key={report.$id} report={report} onUpdated={handleWeeklyUpdated} />
+              ))}
+              {weeklyReports.length === 0 && (
+                <p className="text-sm text-neutral-400">Aucun rapport hebdomadaire pour cette structure.</p>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {datasetReports.map((report) => (
+                <DatasetReportEditor key={report.$id} report={report} onUpdated={handleDatasetUpdated} />
+              ))}
+              {datasetReports.length === 0 && (
+                <p className="text-sm text-neutral-400">Aucune analyse de données brutes pour cette structure.</p>
+              )}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

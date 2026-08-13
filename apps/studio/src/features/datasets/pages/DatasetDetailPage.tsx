@@ -1,6 +1,7 @@
 //apps/studio/src/features/datasets/pages/DatasetDetailPage.tsx
 import { useEffect, useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
+import { getReportForDataset } from '../../../api/datasets';
 import {
   getDataset,
   listDatasetsForTenant,
@@ -92,15 +93,25 @@ export default function DatasetDetailPage() {
         setMappingRows(initialMapping);
       }
     } else {
-      const [cols, dsRows, siblings] = await Promise.all([
-        listDatasetColumns(d.$id),
-        listDatasetRows(d.$id),
-        listDatasetsForTenant(d.tenant_id),
-      ]);
-      setColumns(cols);
-      setRows(dsRows);
-      setOtherDatasets(siblings.filter((s) => s.$id !== d.$id && s.status !== 'DRAFT'));
+  const [cols, dsRows, siblings, existingReport] = await Promise.all([
+    listDatasetColumns(d.$id),
+    listDatasetRows(d.$id),
+    listDatasetsForTenant(d.tenant_id),
+    getReportForDataset(d.$id),
+  ]);
+  setColumns(cols);
+  setRows(dsRows);
+  setOtherDatasets(siblings.filter((s) => s.$id !== d.$id && s.status !== 'DRAFT'));
+
+  if (existingReport) {
+    setDirectives(existingReport.ai_directives ?? '');
+    try {
+      setResults(JSON.parse(existingReport.analysis_result));
+    } catch {
+      setResults(null);
     }
+  }
+}
 
     setLoading(false);
   }
