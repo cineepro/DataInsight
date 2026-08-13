@@ -35,7 +35,7 @@ export interface DatasetReport {
   created_at: string;
 }
 
-const COLLECTION_ROW_BATCH_SIZE = 25; // évite de saturer le réseau avec des centaines d'appels simultanés
+//const COLLECTION_ROW_BATCH_SIZE = 25; // évite de saturer le réseau avec des centaines d'appels simultanés
 
 // ---------------- Datasets ----------------
 
@@ -161,10 +161,20 @@ async function listAllDatasetRows(datasetId: string): Promise<DatasetRow[]> {
 
 export const listDatasetRows = listAllDatasetRows;
 
+const COLLECTION_ROW_BATCH_SIZE = 8; // réduit — reste sous la limite Appwrite même en rafale
+const DELAY_BETWEEN_BATCHES_MS = 600; // laisse le temps à la fenêtre de rate-limit de se libérer
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
- * Insère les lignes par lots pour éviter de bombarder Appwrite avec des
- * centaines d'appels simultanés. onProgress permet à l'UI d'afficher une
- * barre de progression pour les gros fichiers (plusieurs centaines de lignes).
+ * Insère les lignes par petits lots, avec une pause entre chaque, pour
+ * rester sous la limite de requêtes d'Appwrite Cloud sur les endpoints de
+ * création de documents (429 Too Many Requests au-delà). Plus lent qu'un
+ * envoi massif en parallèle, mais fiable — pour un fichier de quelques
+ * centaines de lignes, l'import prend quelques dizaines de secondes,
+ * acceptable pour un usage d'analyste (pas un flux temps réel).
  */
 export async function insertDatasetRows(
   datasetId: string,
@@ -175,17 +185,39 @@ export async function insertDatasetRows(
 
   for (let i = 0; i < rows.length; i += COLLECTION_ROW_BATCH_SIZE) {
     const batch = rows.slice(i, i + COLLECTION_ROW_BATCH_SIZE);
-    await Promise.all(
-      batch.map((row) =>
-        databases.createDocument(DATABASE_ID, COLLECTIONS.DATASET_ROWS, ID.unique(), {
-          dataset_id: datasetId,
-          row_index: row.row_index,
-          payload: JSON.stringify(row.payload),
-        })
-      )
-    );
-    inserted += batch.length;
-    onProgress?.(inserted, rows.length);
+
+    // Séquentiel à l'intérieur du lot aussi (pas de Promise.all) — encore
+    // plus prudent, quitte à être un peu plus lent, pour éviter tout 429
+    // même sur des comptes avec des quotas plus stricts.
+    for (const row of batch) {
+      let attempt = 0;
+      // Petite retry logic : si malgré tout on se prend un 429 isolé,
+      // on attend et on réessaie une fois plutôt que de faire échouer
+      // tout l'import pour une seule ligne.
+      while (true) {
+        try {
+          await databases.createDocument(DATABASE_ID, COLLECTIONS.DATASET_ROWS, ID.unique(), {
+            dataset_id: datasetId,
+            row_index: row.row_index,
+            payload: JSON.stringify(row.payload),
+          });
+          break;
+        } catch (err: any) {
+          attempt++;
+          if (err?.code === 429 && attempt <= 2) {
+            await delay(2000 * attempt);
+            continue;
+          }
+          throw err;
+        }
+      }
+      inserted++;
+      onProgress?.(inserted, rows.length);
+    }
+
+    if (i + COLLECTION_ROW_BATCH_SIZE < rows.length) {
+      await delay(DELAY_BETWEEN_BATCHES_MS);
+    }
   }
 }
 
