@@ -8,6 +8,7 @@ import BlockSelector from '../components/BlockSelector';
 import StatisticsGrid from '../components/StatisticsGrid';
 import Logo from '../../../components/Logo';
 import Button from '../../../components/ui/Button';
+import PageNav from '../../../components/ui/PageNav';
 
 const WEEKS_PER_YEAR = 52;
 
@@ -83,6 +84,8 @@ export default function StatisticsPage() {
           Déconnexion
         </Button>
       </header>
+      
+      <PageNav />
 
       <div className="mx-auto max-w-3xl px-6 pb-16">
         <div className="mb-6 text-center">

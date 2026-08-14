@@ -9,6 +9,7 @@ import DatasetReportCard from '../components/DatasetReportCard';
 import Logo from '../../../components/Logo';
 import Button from '../../../components/ui/Button';
 import Tabs from '../../../components/ui/Tabs';
+import PageNav from '../../../components/ui/PageNav';
 
 type TabId = 'weekly' | 'datasets';
 
@@ -53,6 +54,8 @@ export default function ClientReportsPage() {
         </Button>
       </header>
 
+      <PageNav />
+      
       <div className="mx-auto max-w-xl px-6 pb-16">
         <div className="mb-6 text-center">
           <span className="font-mono text-[11px] uppercase tracking-wider text-neutral-400">Vos rapports</span>
