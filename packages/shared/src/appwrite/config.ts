@@ -18,6 +18,9 @@ export const COLLECTIONS = {
   DATASET_COLUMNS: import.meta.env.VITE_COLLECTION_DATASET_COLUMNS,
   DATASET_ROWS: import.meta.env.VITE_COLLECTION_DATASET_ROWS,
   DATASET_REPORTS: import.meta.env.VITE_COLLECTION_DATASET_REPORTS,
+  KNOWLEDGE_BASE: import.meta.env.VITE_COLLECTION_KNOWLEDGE_BASE,
+  AI_CHAT_LOGS: import.meta.env.VITE_COLLECTION_AI_CHAT_LOGS,
+  AI_LAB_RATE_LIMIT: import.meta.env.VITE_COLLECTION_AI_LAB_RATE_LIMIT,
 } as const;
 
 // TEAMS : noms lisibles, utilisés uniquement pour COMPARER l'appartenance

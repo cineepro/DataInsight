@@ -12,6 +12,7 @@ const NAV_LINKS = [
   { to: '/alerts', label: 'Alertes' },
   { to: '/datasets', label: 'Données brutes' },
   { to: '/statistics', label: 'Statistiques' },
+  { to: '/ai-lab', label: 'AI Lab' },
 ];
 
 export default function Layout() {
