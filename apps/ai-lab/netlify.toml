@@ -1,6 +1,6 @@
 [build]
   command = "npm run build --workspace=ai-lab"
-  publish = "dist"
+  publish = "apps/ai-lab/dist"
 
 [build.environment]
   NODE_VERSION = "20"
