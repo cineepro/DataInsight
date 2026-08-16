@@ -1,4 +1,4 @@
-// packages/shared/src/types/statistics.ts
+//packages/shared/src/types/statistics.ts
 import type { TenantCategory } from './tenant';
 
 export interface PerformanceBreakdown {
@@ -27,6 +27,14 @@ export interface DistributionEntry {
   value: number;
 }
 
+export interface DatasetBreakdownEntry {
+  dataset_name: string;
+  period_label: string;
+  optimal: number;
+  warning: number;
+  critical: number;
+}
+
 export interface TenantStatistics {
   category: TenantCategory;
   block_label: string;
@@ -35,4 +43,8 @@ export interface TenantStatistics {
   volume_by_week: WeeklyCount[];
   avg_satisfaction_by_week: WeeklyValue[];
   category_specific: Record<string, DistributionEntry[] | WeeklyRate[]>;
+  // NOUVEAU — issu des analyses de données brutes (dataset_reports)
+  // publiées dans la fenêtre de dates du bloc affiché.
+  dataset_performance: PerformanceBreakdown;
+  datasets_breakdown: DatasetBreakdownEntry[];
 }

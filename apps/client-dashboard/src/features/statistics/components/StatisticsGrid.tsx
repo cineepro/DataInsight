@@ -1,27 +1,26 @@
-//apps/studio/src/features/statistics/components/StatisticsGrid.tsx
+//apps/client-dashboard/src/features/statistics/components/StatisticsGrid.tsx
 import type { TenantStatistics, TenantCategory } from '@datainsight/shared';
 import PerformanceDonutChart from './PerformanceDonutChart';
 import WeeklyBarChart from './WeeklyBarChart';
 import DistributionPieChart from './DistributionPieChart';
+import DatasetBreakdownBarChart from './DatasetBreakdownBarChart';
 
 interface StatisticsGridProps {
   stats: TenantStatistics;
   category: TenantCategory;
 }
 
-/**
- * Assemble les graphiques génériques + ceux spécifiques à la catégorie,
- * exactement selon ce que la Function a renvoyé dans category_specific.
- * Identique dans studio et client-dashboard — c'est ce composant qui
- * garantit que l'admin et le gérant voient la même chose.
- */
 export default function StatisticsGrid({ stats, category }: StatisticsGridProps) {
   const categorySpecific = stats.category_specific;
 
   return (
     <div className="flex flex-col gap-4">
       <div className="grid gap-4 md:grid-cols-2">
-        <PerformanceDonutChart performance={stats.performance} />
+        <PerformanceDonutChart
+          performance={stats.performance}
+          title="Performance — rapports hebdo"
+          subtitle="Résultats des avis collectés via QR Code"
+        />
         <WeeklyBarChart
           title="Volume d'avis par semaine"
           subtitle="Nombre total de retours collectés"
@@ -75,6 +74,21 @@ export default function StatisticsGrid({ stats, category }: StatisticsGridProps)
           data={(categorySpecific.interaction_type_distribution as any) ?? []}
         />
       )}
+
+      {/* --- NOUVEAU : section dédiée aux données brutes importées --- */}
+      <div className="mt-2 border-t border-neutral-200 pt-4">
+        <span className="mb-3 block font-mono text-[11px] uppercase tracking-wider text-neutral-400">
+          Données brutes importées
+        </span>
+        <div className="grid gap-4 md:grid-cols-2">
+          <PerformanceDonutChart
+            performance={stats.dataset_performance}
+            title="Performance — données brutes"
+            subtitle="Résultats des fichiers Excel/CSV importés"
+          />
+          <DatasetBreakdownBarChart data={stats.datasets_breakdown} />
+        </div>
+      </div>
     </div>
   );
 }

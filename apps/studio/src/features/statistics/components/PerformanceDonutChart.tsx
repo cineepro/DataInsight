@@ -1,4 +1,4 @@
-//apps/studio/src/features/statistics/components/PerformanceDonutChart.tsx
+//apps/client-dashboard/src/features/statistics/components/PerformanceDonutChart.tsx
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import type { PerformanceBreakdown } from '@datainsight/shared';
 
@@ -10,13 +10,17 @@ const COLORS = {
 
 interface PerformanceDonutChartProps {
   performance: PerformanceBreakdown;
+  title?: string;
+  subtitle?: string;
+  emptyMessage?: string;
 }
 
-/**
- * LE graphique de confiance : même sans comprendre le détail d'une
- * analyse, un coup d'œil suffit pour voir si "ça va bien" ou "il faut agir".
- */
-export default function PerformanceDonutChart({ performance }: PerformanceDonutChartProps) {
+export default function PerformanceDonutChart({
+  performance,
+  title = 'Performance globale',
+  subtitle = "Répartition des résultats d'analyse sur la période",
+  emptyMessage = 'Aucune analyse publiée sur cette période.',
+}: PerformanceDonutChartProps) {
   const total = performance.optimal + performance.warning + performance.critical;
 
   const data = [
@@ -27,16 +31,20 @@ export default function PerformanceDonutChart({ performance }: PerformanceDonutC
 
   if (total === 0) {
     return (
-      <div className="flex h-64 items-center justify-center border border-dashed border-neutral-300 text-sm text-neutral-400">
-        Aucune analyse publiée sur cette période.
+      <div className="border border-neutral-200 bg-white p-5">
+        <h3 className="mb-1 text-sm font-medium text-ink">{title}</h3>
+        <p className="mb-3 text-xs text-neutral-400">{subtitle}</p>
+        <div className="flex h-40 items-center justify-center border border-dashed border-neutral-300 text-sm text-neutral-400">
+          {emptyMessage}
+        </div>
       </div>
     );
   }
 
   return (
     <div className="border border-neutral-200 bg-white p-5">
-      <h3 className="mb-1 text-sm font-medium text-ink">Performance globale</h3>
-      <p className="mb-3 text-xs text-neutral-400">Répartition des résultats d'analyse sur la période</p>
+      <h3 className="mb-1 text-sm font-medium text-ink">{title}</h3>
+      <p className="mb-3 text-xs text-neutral-400">{subtitle}</p>
       <ResponsiveContainer width="100%" height={220}>
         <PieChart>
           <Pie data={data} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={3}>

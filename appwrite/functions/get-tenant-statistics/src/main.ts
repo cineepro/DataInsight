@@ -9,12 +9,6 @@ interface RequestPayload {
 
 type ScanCategory = 'RESTAURANT' | 'FASTFOOD' | 'PHARMACIE' | 'ENTREPRISE';
 
-// Approximation volontaire : on traite chaque année comme ayant 52 semaines
-// pour le calcul de navigation par bloc. Les années à 53 semaines ISO
-// (rares) décaleront le libellé d'une semaine autour du Nouvel An — impact
-// cosmétique mineur, pas une erreur de données (les vraies semaines ISO
-// des scans, elles, restent correctes puisqu'elles viennent de getISOYearWeek
-// côté client au moment de la soumission).
 const WEEKS_PER_YEAR = 52;
 
 function computeBlockWeeks(startYear: number, startWeek: number): Array<{ year: number; week: number }> {
@@ -30,6 +24,19 @@ function computeBlockWeeks(startYear: number, startWeek: number): Array<{ year: 
     }
   }
   return weeks;
+}
+
+// Calcule le lundi d'une semaine ISO donnée (algorithme standard ISO-8601).
+function mondayOfISOWeek(year: number, week: number): Date {
+  const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
+  const dayOfWeek = simple.getUTCDay() || 7;
+  const monday = new Date(simple);
+  if (dayOfWeek <= 4) {
+    monday.setUTCDate(simple.getUTCDate() - dayOfWeek + 1);
+  } else {
+    monday.setUTCDate(simple.getUTCDate() + 8 - dayOfWeek);
+  }
+  return monday;
 }
 
 function collectionForCategory(category: ScanCategory): string {
@@ -93,49 +100,36 @@ function distributionOf(
     .sort((a, b) => b.value - a.value);
 }
 
-/**
- * Renvoie des statistiques déjà agrégées pour un tenant, sur un bloc de
- * 4 semaines ISO consécutives — jamais une ligne de scan individuelle.
- * Appelée aussi bien par le Studio (admin/analyste, accès à tous les
- * tenants) que par l'espace client (gérant, accès uniquement à son propre
- * tenant) — la distinction se fait via la vérification d'appartenance
- * aux Teams ci-dessous.
- */
 export default async ({ req, res, log, error }: any) => {
-  let body: RequestPayload;
-
   try {
-    body = JSON.parse(req.bodyText || '{}');
-  } catch {
-    return res.json({ error: 'Corps de requête invalide.' }, 400);
-  }
+    let body: RequestPayload;
+    try {
+      body = JSON.parse(req.bodyText || '{}');
+    } catch {
+      return res.json({ error: 'Corps de requête invalide.' }, 400);
+    }
 
-  if (!body.tenant_slug || !body.block_start_year || !body.block_start_week) {
-    return res.json({ error: 'Paramètres manquants.' }, 400);
-  }
+    if (!body.tenant_slug || !body.block_start_year || !body.block_start_week) {
+      return res.json({ error: 'Paramètres manquants.' }, 400);
+    }
 
-  // Appwrite transmet l'ID de l'utilisateur authentifié qui a déclenché
-  // l'exécution dans cet en-tête, lorsque la Function est appelée avec une
-  // session active (execute: "users"). Si ce header n'est jamais rempli
-  // dans ta version d'Appwrite, dis-le-moi — il faudra passer par le JWT
-  // (x-appwrite-user-jwt) à la place, avec une vérification légèrement différente.
-  const callerUserId = req.headers['x-appwrite-user-id'];
+    const headers = req.headers ?? {};
+    const callerUserId = headers['x-appwrite-user-id'];
 
-  if (!callerUserId) {
-    return res.json({ error: 'Authentification requise.' }, 401);
-  }
+    if (!callerUserId) {
+      return res.json({ error: 'Authentification requise.' }, 401);
+    }
 
-  const client = new Client()
-    .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT!)
-    .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID!)
-    .setKey(process.env.APPWRITE_API_KEY!);
+    const client = new Client()
+      .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT!)
+      .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID!)
+      .setKey(process.env.APPWRITE_API_KEY!);
 
-  const databases = new Databases(client);
-  const users = new Users(client);
-  const databaseId = process.env.APPWRITE_DATABASE_ID!;
+    const databases = new Databases(client);
+    const users = new Users(client);
+    const databaseId = process.env.APPWRITE_DATABASE_ID!;
 
-  try {
-    // --- 1. Vérifier les droits de l'appelant sur CE tenant précis ---
+    // --- 1. Vérifier les droits de l'appelant ---
     const memberships = await users.listMemberships(callerUserId);
     const teamNames = memberships.memberships.map((m: any) => m.teamName);
     const isAdminOrAnalyst = teamNames.includes('admins') || teamNames.includes('analysts');
@@ -145,7 +139,7 @@ export default async ({ req, res, log, error }: any) => {
       return res.json({ error: 'Accès refusé pour cette structure.' }, 403);
     }
 
-    // --- 2. Charger le tenant pour connaître sa catégorie ---
+    // --- 2. Charger le tenant ---
     const tenantResult = await databases.listDocuments(databaseId, process.env.APPWRITE_COLLECTION_TENANTS!, [
       Query.equal('slug', body.tenant_slug),
       Query.limit(1),
@@ -157,7 +151,7 @@ export default async ({ req, res, log, error }: any) => {
     const scanCollectionId = collectionForCategory(category);
     const blockWeeks = computeBlockWeeks(body.block_start_year, body.block_start_week);
 
-    // --- 3. Récupérer tous les scans du bloc, semaine par semaine ---
+    // --- 3. Scans du bloc (données QR Code) ---
     const scansByWeek: Record<string, any[]> = {};
     for (const { year, week } of blockWeeks) {
       scansByWeek[`${year}-${week}`] = await fetchAllForWeek(
@@ -171,13 +165,11 @@ export default async ({ req, res, log, error }: any) => {
     }
     const allScans = Object.values(scansByWeek).flat();
 
-    // --- 4. Volume par semaine ---
     const volume_by_week = blockWeeks.map(({ year, week }) => ({
       week,
       count: scansByWeek[`${year}-${week}`].length,
     }));
 
-    // --- 5. Satisfaction moyenne par semaine (quand le champ existe) ---
     const avg_satisfaction_by_week = blockWeeks.map(({ year, week }) => {
       const scans = scansByWeek[`${year}-${week}`];
       const values = scans.map((s) => s.satisfaction_global).filter((v: any) => typeof v === 'number');
@@ -188,7 +180,6 @@ export default async ({ req, res, log, error }: any) => {
       return { week, value };
     });
 
-    // --- 6. Graphiques spécifiques à la catégorie ---
     const category_specific: Record<string, unknown> = {};
 
     if (category === 'RESTAURANT' || category === 'FASTFOOD') {
@@ -220,7 +211,7 @@ export default async ({ req, res, log, error }: any) => {
       category_specific.interaction_type_distribution = distributionOf(allScans, 'interaction_type', null);
     }
 
-    // --- 7. Performance : statuts des rapports hebdo PUBLIÉS sur le bloc ---
+    // --- 4. Performance des rapports hebdomadaires publiés sur le bloc ---
     const performance = { optimal: 0, warning: 0, critical: 0 };
 
     for (const { year, week } of blockWeeks) {
@@ -242,27 +233,100 @@ export default async ({ req, res, log, error }: any) => {
           else if (r.status === 'CRITICAL') performance.critical++;
         }
       } catch {
-        // Rapport mal formé : ignoré silencieusement, n'interrompt pas le calcul global.
+        // Rapport mal formé : ignoré.
       }
     }
+
+    // --- 5. NOUVEAU — Performance des analyses de données brutes (dataset_reports) ---
+    const dataset_performance = { optimal: 0, warning: 0, critical: 0 };
+    const datasets_breakdown: Array<{
+      dataset_name: string;
+      period_label: string;
+      optimal: number;
+      warning: number;
+      critical: number;
+    }> = [];
 
     const firstWeek = blockWeeks[0];
     const lastWeek = blockWeeks[blockWeeks.length - 1];
 
+    const blockStartDate = mondayOfISOWeek(firstWeek.year, firstWeek.week);
+    const blockEndDate = mondayOfISOWeek(lastWeek.year, lastWeek.week);
+    blockEndDate.setUTCDate(blockEndDate.getUTCDate() + 6);
+    blockEndDate.setUTCHours(23, 59, 59, 999);
+
+    log('Fenêtre de dates pour les datasets: ' + blockStartDate.toISOString() + ' -> ' + blockEndDate.toISOString());
+
+    const datasetReportsResult = await databases.listDocuments(
+      databaseId,
+      process.env.APPWRITE_COLLECTION_DATASET_REPORTS!,
+      [
+        Query.equal('tenant_id', body.tenant_slug),
+        Query.equal('status', 'PUBLISHED'),
+        Query.greaterThanEqual('published_at', blockStartDate.toISOString()),
+        Query.lessThanEqual('published_at', blockEndDate.toISOString()),
+        Query.limit(50),
+      ]
+    );
+
+    if (datasetReportsResult.documents.length > 0) {
+      // Récupère les noms/périodes des datasets concernés en une seule passe.
+      const datasetIds = [...new Set(datasetReportsResult.documents.map((r: any) => r.dataset_id))];
+      const datasetInfoMap = new Map<string, { name: string; period_label?: string }>();
+
+      for (const datasetId of datasetIds) {
+        try {
+          const datasetDoc = await databases.getDocument(databaseId, process.env.APPWRITE_COLLECTION_DATASETS!, datasetId);
+          datasetInfoMap.set(datasetId, { name: (datasetDoc as any).name, period_label: (datasetDoc as any).period_label });
+        } catch {
+          datasetInfoMap.set(datasetId, { name: 'Dataset supprimé', period_label: undefined });
+        }
+      }
+
+      for (const report of datasetReportsResult.documents as any[]) {
+        const info = datasetInfoMap.get(report.dataset_id) ?? { name: 'Dataset', period_label: undefined };
+        const entry = { dataset_name: info.name, period_label: info.period_label ?? '', optimal: 0, warning: 0, critical: 0 };
+
+        try {
+          const results = JSON.parse(report.analysis_result) as Array<{ status: string }>;
+          for (const r of results) {
+            if (r.status === 'OPTIMAL') {
+              dataset_performance.optimal++;
+              entry.optimal++;
+            } else if (r.status === 'WARNING') {
+              dataset_performance.warning++;
+              entry.warning++;
+            } else if (r.status === 'CRITICAL') {
+              dataset_performance.critical++;
+              entry.critical++;
+            }
+          }
+        } catch {
+          // Rapport mal formé : ignoré.
+        }
+
+        datasets_breakdown.push(entry);
+      }
+    }
+
+    log('Datasets trouvés dans le bloc: ' + datasets_breakdown.length);
+
     return res.json(
       {
-        category, // NOUVEAU — renvoyé directement, plus besoin de le deviner côté front
+        category,
         block_label: `Semaines ${firstWeek.week}-${lastWeek.week} — ${firstWeek.year}`,
         weeks: blockWeeks.map((w) => w.week),
         performance,
         volume_by_week,
         avg_satisfaction_by_week,
         category_specific,
+        dataset_performance,
+        datasets_breakdown,
       },
       200
     );
   } catch (err) {
-    error('Erreur get-tenant-statistics: ' + (err as Error).message);
-    return res.json({ error: 'Erreur serveur.' }, 500);
+    error('Erreur get-tenant-statistics: ' + (err as Error).message + ' | stack: ' + (err as Error).stack);
+    return res.json({ error: 'Erreur serveur: ' + (err as Error).message }, 500);
   }
 };
