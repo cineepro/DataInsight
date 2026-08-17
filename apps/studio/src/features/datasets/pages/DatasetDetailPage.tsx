@@ -152,39 +152,36 @@ export default function DatasetDetailPage() {
     }
   }
 
-  function runConfig(config: FlexibleFunctionConfig, periodLabel: string): AnalysisResult | null {
-    const findCol = (key: string) => columns.find((c) => c.key === key) ?? null;
+  async function runConfig(config: FlexibleFunctionConfig, periodLabel: string): Promise<AnalysisResult | null> {
+  const findCol = (key: string) => columns.find((c) => c.key === key) ?? null;
 
-    switch (config.type) {
-      case 'aggregate_by_dimension': {
-        const dim = findCol(config.dimensionKey);
-        if (!dim) return null;
-        return aggregateByDimension(rows, dim, config.metricKey ? findCol(config.metricKey) : null, config.aggregation, periodLabel);
-      }
-      case 'top_n_by_dimension': {
-        const dim = findCol(config.dimensionKey);
-        if (!dim) return null;
-        return topNByDimension(rows, dim, config.metricKey ? findCol(config.metricKey) : null, config.n, periodLabel);
-      }
-      case 'cross_correlate_columns': {
-        const a = findCol(config.columnAKey);
-        const b = findCol(config.columnBKey);
-        if (!a || !b) return null;
-        return crossCorrelateColumns(rows, a, b, periodLabel);
-      }
-      case 'detect_anomalies': {
-        const metric = findCol(config.metricKey);
-        if (!metric) return null;
-        return detectAnomaliesInColumn(rows, metric, config.identifierKey ? findCol(config.identifierKey) : null, periodLabel);
-      }
-      case 'compare_snapshots': {
-        // Limitation connue : suppose que les clés de colonnes correspondent
-        // entre les deux datasets (même noms de colonnes source).
-        return null; // traité séparément ci-dessous car async (charge l'autre dataset)
-      }
+  switch (config.type) {
+    case 'aggregate_by_dimension': {
+      const dim = findCol(config.dimensionKey);
+      if (!dim) return null;
+      return aggregateByDimension(rows, dim, config.metricKey ? findCol(config.metricKey) : null, config.aggregation, periodLabel);
+    }
+    case 'top_n_by_dimension': {
+      const dim = findCol(config.dimensionKey);
+      if (!dim) return null;
+      return topNByDimension(rows, dim, config.metricKey ? findCol(config.metricKey) : null, config.n, periodLabel);
+    }
+    case 'cross_correlate_columns': {
+      const a = findCol(config.columnAKey);
+      const b = findCol(config.columnBKey);
+      if (!a || !b) return null;
+      return await crossCorrelateColumns(rows, a, b, periodLabel); // AVANT : sans await
+    }
+    case 'detect_anomalies': {
+      const metric = findCol(config.metricKey);
+      if (!metric) return null;
+      return await detectAnomaliesInColumn(rows, metric, config.identifierKey ? findCol(config.identifierKey) : null, periodLabel); // AVANT : sans await
+    }
+    case 'compare_snapshots': {
+      return null;
     }
   }
-
+}
   async function handleRunAnalysis() {
     if (!dataset) return;
     setRunning(true);
@@ -209,10 +206,18 @@ export default function DatasetDetailPage() {
             )
           );
         } else {
-          const result = runConfig(config, periodLabel);
-          if (result) computedResults.push(result);
-        }
+  const result = await runConfig(config, periodLabel); // AVANT : sans await
+  if (result) computedResults.push(result);
+}
       }
+
+      // APRÈS — les fonctions engine/flexible/ ne sont PAS encore migrées à ce
+// stade (ce sera un chantier séparé, elles n'utilisent pas encore
+// getThresholds), donc ce fichier n'a besoin d'aucun changement pour
+// l'instant. Je le note ici pour mémoire : quand on migrera
+// flexible.cross_correlate et flexible.detect_anomalies, runConfig()
+// devra devenir async et cet appel devra passer par un await/Promise.all,
+// exactement le même principe que pour StudioPage.
 
       setResults(computedResults);
 

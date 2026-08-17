@@ -1,7 +1,10 @@
-//apps/studio/src/engine/restaurant/comparePeriodCrossMetrics.ts
+// apps/studio/src/engine/restaurant/comparePeriodCrossMetrics.ts
 import type { ScanRestaurant } from '@datainsight/shared';
 import { comparePeriods } from '../common/comparePeriods';
+import { getThresholds } from '../thresholds';
 import type { AnalysisFunction } from '../types';
+
+const FUNCTION_ID = 'restaurant.compare_periods';
 
 function computeMetrics(scans: ScanRestaurant[]): Record<string, number> {
   const total = scans.length;
@@ -15,18 +18,16 @@ function computeMetrics(scans: ScanRestaurant[]): Record<string, number> {
   };
 }
 
-/**
- * Nécessite context.previousPeriodScans (scans de la semaine précédente,
- * à charger côté StudioPage via fetchRestaurantScans avant d'appeler cette fonction).
- */
-export const comparePeriodCrossMetrics: AnalysisFunction<ScanRestaurant> = (currentScans, context) => {
+export const comparePeriodCrossMetrics: AnalysisFunction<ScanRestaurant> = async (currentScans, context) => {
+  const t = await getThresholds(FUNCTION_ID);
+
   const previousScans = context.previousPeriodScans ?? [];
   const currentMetrics = computeMetrics(currentScans);
   const previousMetrics = computeMetrics(previousScans);
   const comparison = comparePeriods(currentMetrics, previousMetrics);
 
   const degraded = comparison.filter(
-    (c) => c.metric === 'avg_satisfaction' && c.deltaPercentage !== null && c.deltaPercentage < -10
+    (c) => c.metric === 'avg_satisfaction' && c.deltaPercentage !== null && c.deltaPercentage < t.critical_decline_threshold
   );
 
   return {

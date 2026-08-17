@@ -1,8 +1,13 @@
-//apps/studio/src/engine/pharmacie/detectStockoutImpact.ts
+// apps/studio/src/engine/pharmacie/detectStockoutImpact.ts
 import type { ScanPharmacie } from '@datainsight/shared';
+import { getThresholds } from '../thresholds';
 import type { AnalysisFunction } from '../types';
 
-export const detectStockoutImpact: AnalysisFunction<ScanPharmacie> = (scans, context) => {
+const FUNCTION_ID = 'pharmacie.stockout_impact';
+
+export const detectStockoutImpact: AnalysisFunction<ScanPharmacie> = async (scans, context) => {
+  const t = await getThresholds(FUNCTION_ID);
+
   const total = scans.length;
   const stockouts = scans.filter((s) => s.product_availability === 'RUPTURE');
   const partial = scans.filter((s) => s.product_availability === 'PARTIEL');
@@ -23,7 +28,7 @@ export const detectStockoutImpact: AnalysisFunction<ScanPharmacie> = (scans, con
   return {
     metricName: 'Impact des ruptures de stock',
     period: `Semaine ${context.weekNumber} — ${context.year}`,
-    status: stockoutRate > 0.15 ? 'CRITICAL' : stockoutRate > 0.05 ? 'WARNING' : 'OPTIMAL',
+    status: stockoutRate > t.critical_rate ? 'CRITICAL' : stockoutRate > t.warning_rate ? 'WARNING' : 'OPTIMAL',
     dataPoints: { stockoutRate: Number((stockoutRate * 100).toFixed(1)), topMissing, totalScans: total },
     keyFindings: topMissing.map((p) => `"${p.product}" signalé en rupture/partiel ${p.count} fois cette semaine`),
   };

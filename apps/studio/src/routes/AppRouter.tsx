@@ -20,6 +20,8 @@ import StatisticsPage from '../features/statistics/pages/StatisticsPage';
 
 import AiLabPage from '../features/ai-lab/pages/AiLabPage';
 
+import ThresholdsPage from '../features/thresholds/pages/ThresholdsPage';
+
 interface AuthState {
   session: AdminSession | null;
   loading: boolean;
@@ -68,6 +70,7 @@ export default function AppRouter() {
           <Route path="/datasets/:id" element={<DatasetDetailPage />} />
           <Route path="/statistics" element={<StatisticsPage />} />
           <Route path="/ai-lab" element={<AiLabPage />} />
+          <Route path="/thresholds" element={<ThresholdsPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,19 +1,24 @@
-//apps/studio/src/engine/restaurant/analyzePeakHoursAndBottlenecks.ts
+// apps/studio/src/engine/restaurant/analyzePeakHoursAndBottlenecks.ts
 import type { ScanRestaurant } from '@datainsight/shared';
 import { aggregateByTimeSlot } from '../common/aggregateByTimeSlot';
+import { getThresholds } from '../thresholds';
 import type { AnalysisFunction } from '../types';
 
-const DISSATISFACTION_THRESHOLD = 0.3; // 30% d'insatisfaction déclenche une alerte
-const MIN_SAMPLE_SIZE = 3; // ignore les créneaux avec trop peu d'avis pour être significatifs
+const FUNCTION_ID = 'restaurant.peak_hours_bottlenecks';
 
-export const analyzePeakHoursAndBottlenecks: AnalysisFunction<ScanRestaurant> = (scans, context) => {
+export const analyzePeakHoursAndBottlenecks: AnalysisFunction<ScanRestaurant> = async (scans, context) => {
+  // Seuils récupérés depuis Appwrite (ou les défauts du registre si rien
+  // n'a été configuré) — c'est le seul ajout par rapport à la version
+  // précédente : plus aucune constante codée en dur juste en dessous.
+  const t = await getThresholds(FUNCTION_ID);
+
   const slots = aggregateByTimeSlot(scans, {
     getSatisfaction: (s) => s.satisfaction_global,
     isDissatisfied: (s) => s.wait_time_bucket === 'GT30' || s.satisfaction_global <= 2,
   });
 
   const criticalSlots = slots.filter(
-    (s) => s.dissatisfactionRate > DISSATISFACTION_THRESHOLD && s.count >= MIN_SAMPLE_SIZE
+    (s) => s.dissatisfactionRate > t.dissatisfaction_threshold && s.count >= t.min_sample_size
   );
 
   return {

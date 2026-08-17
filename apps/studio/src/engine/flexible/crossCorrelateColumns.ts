@@ -1,6 +1,9 @@
-//apps/studio/src/engine/flexible/crossCorrelateColumns.ts
+// apps/studio/src/engine/flexible/crossCorrelateColumns.ts
 import type { DatasetRow, DatasetColumnDef, AnalysisResult } from './types';
 import { crossCorrelate } from '../common/crossCorrelate';
+import { getThresholds } from '../thresholds';
+
+const FUNCTION_ID = 'flexible.cross_correlate';
 
 function toNumber(value: unknown): number | null {
   if (typeof value === 'number') return value;
@@ -11,17 +14,14 @@ function toNumber(value: unknown): number | null {
   return null;
 }
 
-/**
- * Corrélation entre deux colonnes numériques — ne garde que les lignes où
- * les deux valeurs sont exploitables (paires complètes), à la manière
- * d'Excel qui ignore les cellules vides dans un calcul de corrélation.
- */
-export function crossCorrelateColumns(
+export async function crossCorrelateColumns(
   rows: DatasetRow[],
   columnA: DatasetColumnDef,
   columnB: DatasetColumnDef,
   periodLabel: string
-): AnalysisResult {
+): Promise<AnalysisResult> {
+  const t = await getThresholds(FUNCTION_ID);
+
   const seriesA: number[] = [];
   const seriesB: number[] = [];
 
@@ -34,7 +34,15 @@ export function crossCorrelateColumns(
     }
   }
 
-  const result = crossCorrelate(seriesA, seriesB);
+  // crossCorrelate() (engine/common) renvoie déjà une classification
+  // FAIBLE/MODEREE/FORTE avec ses propres seuils internes fixes (0.3/0.6) —
+  // on la recalcule ici manuellement avec les seuils configurables pour
+  // que cette fonction précise reste ajustable indépendamment de
+  // pharmacie.queue_staffing_efficiency qui utilise la même brique commune.
+  const rawResult = crossCorrelate(seriesA, seriesB);
+  const abs = Math.abs(rawResult.coefficient);
+  const strength = abs >= t.strong_threshold ? 'FORTE' : abs >= t.moderate_threshold ? 'MODEREE' : 'FAIBLE';
+  const result = { ...rawResult, strength };
 
   const status = result.strength === 'FORTE' ? 'WARNING' : 'OPTIMAL';
   const direction = result.coefficient >= 0 ? 'positive' : 'négative';

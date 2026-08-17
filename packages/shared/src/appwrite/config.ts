@@ -21,6 +21,7 @@ export const COLLECTIONS = {
   KNOWLEDGE_BASE: import.meta.env.VITE_COLLECTION_KNOWLEDGE_BASE,
   AI_CHAT_LOGS: import.meta.env.VITE_COLLECTION_AI_CHAT_LOGS,
   AI_LAB_RATE_LIMIT: import.meta.env.VITE_COLLECTION_AI_LAB_RATE_LIMIT,
+  ANALYSIS_THRESHOLDS: import.meta.env.VITE_COLLECTION_ANALYSIS_THRESHOLDS,
 } as const;
 
 // TEAMS : noms lisibles, utilisés uniquement pour COMPARER l'appartenance

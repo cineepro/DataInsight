@@ -36,14 +36,14 @@ export default function CustomersPage() {
   }, [category]);
 
   async function loadCustomers() {
-    const tenant = tenants.find((t) => t.$id === tenantId);
-    if (!tenant) return;
-    setLoading(true);
-    const data = await listCustomersForTenant(tenant.slug);
-    setCustomers(data);
-    setAnalysis(detectChurnRisk(data));
-    setLoading(false);
-  }
+  const tenant = tenants.find((t) => t.$id === tenantId);
+  if (!tenant) return;
+  setLoading(true);
+  const data = await listCustomersForTenant(tenant.slug);
+  setCustomers(data);
+  setAnalysis(await detectChurnRisk(data)); // AVANT : detectChurnRisk(data) sans await
+  setLoading(false);
+}
 
   useEffect(() => {
     if (tenantId) loadCustomers();
@@ -54,26 +54,26 @@ export default function CustomersPage() {
   }, [tenantId, tenants]);
 
   async function handleSyncStatuses() {
-    setSyncing(true);
-    try {
-      const freshAnalysis = detectChurnRisk(customers);
-      await Promise.all(
-        freshAnalysis.map((entry) => {
-          const customer = customers.find((c) => c.$id === entry.customerId);
-          if (customer && customer.status !== entry.riskLevel) {
-            return updateCustomerStatus(entry.customerId, entry.riskLevel);
-          }
-          return Promise.resolve();
-        })
-      );
-      setAnalysis(freshAnalysis);
-    } catch (err) {
-      console.error(err);
-      alert('Erreur lors de la mise à jour des statuts.');
-    } finally {
-      setSyncing(false);
-    }
+  setSyncing(true);
+  try {
+    const freshAnalysis = await detectChurnRisk(customers); // AVANT : sans await
+    await Promise.all(
+      freshAnalysis.map((entry) => {
+        const customer = customers.find((c) => c.$id === entry.customerId);
+        if (customer && customer.status !== entry.riskLevel) {
+          return updateCustomerStatus(entry.customerId, entry.riskLevel);
+        }
+        return Promise.resolve();
+      })
+    );
+    setAnalysis(freshAnalysis);
+  } catch (err) {
+    console.error(err);
+    alert('Erreur lors de la mise à jour des statuts.');
+  } finally {
+    setSyncing(false);
   }
+}
 
   const selectedCustomer = customers.find((c) => c.$id === selectedCustomerId);
   const selectedAnalysis = analysis.find((a) => a.customerId === selectedCustomerId);

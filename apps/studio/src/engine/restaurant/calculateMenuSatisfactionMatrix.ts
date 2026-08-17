@@ -1,6 +1,9 @@
-//apps/studio/src/engine/restaurant/calculateMenuSatisfactionMatrix.ts
+// apps/studio/src/engine/restaurant/calculateMenuSatisfactionMatrix.ts
 import type { ScanRestaurant } from '@datainsight/shared';
+import { getThresholds } from '../thresholds';
 import type { AnalysisFunction } from '../types';
+
+const FUNCTION_ID = 'restaurant.menu_satisfaction_matrix';
 
 interface ProductStat {
   product: string;
@@ -9,7 +12,9 @@ interface ProductStat {
   category: 'GAGNANT' | 'ETOILE_FILANTE' | 'A_CORRIGER' | 'PLAT_MORT';
 }
 
-export const calculateMenuSatisfactionMatrix: AnalysisFunction<ScanRestaurant> = (scans, context) => {
+export const calculateMenuSatisfactionMatrix: AnalysisFunction<ScanRestaurant> = async (scans, context) => {
+  const t = await getThresholds(FUNCTION_ID);
+
   const productMap = new Map<string, { count: number; satisfactionSum: number }>();
 
   for (const scan of scans) {
@@ -30,7 +35,7 @@ export const calculateMenuSatisfactionMatrix: AnalysisFunction<ScanRestaurant> =
   for (const [product, entry] of productMap.entries()) {
     const avgSatisfaction = entry.satisfactionSum / entry.count;
     const highVolume = entry.count >= medianCount;
-    const highSatisfaction = avgSatisfaction >= 3.5;
+    const highSatisfaction = avgSatisfaction >= t.high_satisfaction_threshold;
 
     let category: ProductStat['category'];
     if (highVolume && highSatisfaction) category = 'GAGNANT';

@@ -92,10 +92,12 @@ export default function StudioPage() {
       const availableFunctions = getFunctionsForCategory(category);
       const selectedFunctions = availableFunctions.filter((fn) => selectedFunctionIds.includes(fn.id));
 
-      const analysisResults: AnalysisResult[] = selectedFunctions.map((fn) =>
-        // @ts-expect-error — typage garanti au runtime par getFunctionsForCategory
-        fn.run(scans, { tenantId: tenant.slug, year, weekNumber, previousPeriodScans })
-      );
+      const analysisResults: AnalysisResult[] = await Promise.all(
+  selectedFunctions.map((fn) =>
+    // @ts-expect-error — typage garanti au runtime par getFunctionsForCategory
+    fn.run(scans, { tenantId: tenant.slug, year, weekNumber, previousPeriodScans })
+  )
+);
 
       setResults(analysisResults);
 

@@ -1,8 +1,13 @@
-//apps/studio/src/engine/pharmacie/detectStockoutImpact.ts
+// apps/studio/src/engine/pharmacie/analyzeServiceSegmentation.ts
 import type { ScanPharmacie } from '@datainsight/shared';
+import { getThresholds } from '../thresholds';
 import type { AnalysisFunction } from '../types';
 
-export const analyzeServiceSegmentation: AnalysisFunction<ScanPharmacie> = (scans, context) => {
+const FUNCTION_ID = 'pharmacie.service_segmentation';
+
+export const analyzeServiceSegmentation: AnalysisFunction<ScanPharmacie> = async (scans, context) => {
+  const t = await getThresholds(FUNCTION_ID);
+
   const byReason = new Map<string, ScanPharmacie[]>();
   for (const s of scans) {
     if (!byReason.has(s.visit_reason)) byReason.set(s.visit_reason, []);
@@ -19,7 +24,7 @@ export const analyzeServiceSegmentation: AnalysisFunction<ScanPharmacie> = (scan
   });
 
   const parapharmacie = segments.find((s) => s.reason === 'PARAPHARMACIE');
-  const penalized = !!parapharmacie && parapharmacie.longWaitRate > 25;
+  const penalized = !!parapharmacie && parapharmacie.longWaitRate > t.penalized_wait_rate;
 
   return {
     metricName: 'Segmentation par motif de visite',

@@ -1,6 +1,9 @@
-//apps/studio/src/engine/flexible/detectAnomaliesInColumn.ts
+// apps/studio/src/engine/flexible/detectAnomaliesInColumn.ts
 import type { DatasetRow, DatasetColumnDef, AnalysisResult } from './types';
 import { detectAnomalies } from '../common/detectAnomalies';
+import { getThresholds } from '../thresholds';
+
+const FUNCTION_ID = 'flexible.detect_anomalies';
 
 function toNumber(value: unknown): number | null {
   if (typeof value === 'number') return value;
@@ -11,15 +14,17 @@ function toNumber(value: unknown): number | null {
   return null;
 }
 
-export function detectAnomaliesInColumn(
+export async function detectAnomaliesInColumn(
   rows: DatasetRow[],
   metricColumn: DatasetColumnDef,
   identifierColumn: DatasetColumnDef | null,
   periodLabel: string
-): AnalysisResult {
+): Promise<AnalysisResult> {
+  const t = await getThresholds(FUNCTION_ID);
+
   const validRows = rows.filter((r) => toNumber(r.payload[metricColumn.key]) !== null);
 
-  const anomalies = detectAnomalies(validRows, (row) => toNumber(row.payload[metricColumn.key])!, 2);
+  const anomalies = detectAnomalies(validRows, (row) => toNumber(row.payload[metricColumn.key])!, t.std_dev_threshold);
 
   const labelFor = (row: DatasetRow) =>
     identifierColumn ? String(row.payload[identifierColumn.key] ?? `ligne ${row.row_index}`) : `ligne ${row.row_index}`;

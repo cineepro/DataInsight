@@ -1,9 +1,14 @@
-//apps/studio/src/engine/entreprise/analyzeGenericTrends.ts
+// apps/studio/src/engine/entreprise/analyzeGenericTrends.ts
 import type { ScanEntreprise } from '@datainsight/shared';
 import { aggregateByTimeSlot } from '../common/aggregateByTimeSlot';
+import { getThresholds } from '../thresholds';
 import type { AnalysisFunction } from '../types';
 
-export const analyzeGenericTrends: AnalysisFunction<ScanEntreprise> = (scans, context) => {
+const FUNCTION_ID = 'entreprise.generic_trends';
+
+export const analyzeGenericTrends: AnalysisFunction<ScanEntreprise> = async (scans, context) => {
+  const t = await getThresholds(FUNCTION_ID);
+
   const byType = new Map<string, number>();
   for (const s of scans) {
     byType.set(s.interaction_type, (byType.get(s.interaction_type) ?? 0) + 1);
@@ -14,7 +19,7 @@ export const analyzeGenericTrends: AnalysisFunction<ScanEntreprise> = (scans, co
     isDissatisfied: (s) => (s.satisfaction_global ?? 5) <= 2,
   });
 
-  const criticalSlots = slots.filter((s) => s.dissatisfactionRate > 0.3 && s.count >= 3);
+  const criticalSlots = slots.filter((s) => s.dissatisfactionRate > t.dissatisfaction_threshold && s.count >= t.min_sample_size);
 
   return {
     metricName: "Tendances générales d'interaction",

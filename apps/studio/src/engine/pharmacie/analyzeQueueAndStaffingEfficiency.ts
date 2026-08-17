@@ -1,7 +1,10 @@
-//apps/studio/src/engine/pharmacie/analyzeQueueAndStaffingEfficiency.ts
+// apps/studio/src/engine/pharmacie/analyzeQueueAndStaffingEfficiency.ts
 import type { ScanPharmacie } from '@datainsight/shared';
 import { crossCorrelate } from '../common/crossCorrelate';
+import { getThresholds } from '../thresholds';
 import type { AnalysisFunction } from '../types';
+
+const FUNCTION_ID = 'pharmacie.queue_staffing_efficiency';
 
 function dissatisfactionRateByDay(scans: ScanPharmacie[]): Map<number, number> {
   const byDay = new Map<number, ScanPharmacie[]>();
@@ -35,11 +38,9 @@ function staffCountByDay(metrics: Array<{ metric_type: string; date: string; val
   return avg;
 }
 
-/**
- * Nécessite context.operationalMetrics (saisi manuellement par l'admin
- * via la collection operational_metrics, metric_type = STAFF_COUNT).
- */
-export const analyzeQueueAndStaffingEfficiency: AnalysisFunction<ScanPharmacie> = (scans, context) => {
+export const analyzeQueueAndStaffingEfficiency: AnalysisFunction<ScanPharmacie> = async (scans, context) => {
+  const t = await getThresholds(FUNCTION_ID);
+
   const metrics = context.operationalMetrics ?? [];
   const waitRates = dissatisfactionRateByDay(scans);
   const staffCounts = staffCountByDay(metrics);
@@ -49,7 +50,7 @@ export const analyzeQueueAndStaffingEfficiency: AnalysisFunction<ScanPharmacie> 
   const staffSeries = commonDays.map((d) => staffCounts.get(d)!);
   const correlation = crossCorrelate(staffSeries, waitSeries);
 
-  const criticalDays = commonDays.filter((d) => (waitRates.get(d) ?? 0) > 0.3);
+  const criticalDays = commonDays.filter((d) => (waitRates.get(d) ?? 0) > t.critical_wait_rate);
 
   return {
     metricName: "Efficacité file d'attente / effectif",
