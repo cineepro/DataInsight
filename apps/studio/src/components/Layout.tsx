@@ -14,6 +14,7 @@ const NAV_LINKS = [
   { to: '/statistics', label: 'Statistiques' },
   { to: '/ai-lab', label: 'AI Lab' },
   { to: '/thresholds', label: 'Seuils' },
+  { to: '/announcements', label: 'Actualités' },
 ];
 
 export default function Layout() {
