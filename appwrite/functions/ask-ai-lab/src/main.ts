@@ -83,6 +83,7 @@ async function computeSectorBenchmark(
 async function fetchKnowledgeBase(databases: any, databaseId: string, sector: string): Promise<string> {
   const result = await databases.listDocuments(databaseId, process.env.APPWRITE_COLLECTION_KNOWLEDGE_BASE!, [
     Query.equal('sector', [sector, 'GENERAL']),
+    Query.equal('status', 'PUBLISHED'), // NOUVEAU — les brouillons proposés par l'IA n'influencent jamais le chat tant qu'ils ne sont pas validés
     Query.limit(10),
   ]);
 

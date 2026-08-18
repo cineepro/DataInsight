@@ -1,0 +1,14 @@
+{
+  "functionId": "summarize-chat-logs",
+  "name": "summarize-chat-logs",
+  "runtime": "node-18.0",
+  "execute": ["team:admins"],
+  "events": [],
+  "schedule": "0 6 * * 1",
+  "timeout": 60,
+  "enabled": true,
+  "logging": true,
+  "entrypoint": "dist/main.js",
+  "commands": "npm install && npm run build",
+  "path": "functions/summarize-chat-logs"
+}
