@@ -51,13 +51,23 @@ export default function DraftReviewCard({ entry, onResolved }: DraftReviewCardPr
   return (
     <Card>
       <div className="mb-3 flex items-center justify-between">
-        <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-500">{entry.sector}</span>
-        {entry.source_question_count && (
-          <span className="text-xs text-neutral-400">
-            Basé sur {entry.source_question_count} question{entry.source_question_count > 1 ? 's' : ''}
-          </span>
-        )}
-      </div>
+  <div className="flex items-center gap-2">
+    <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-500">{entry.sector}</span>
+    {entry.origin === 'PUBLIC_CONTRIBUTION' && (
+      <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-600">
+        Contribution publique{entry.contributor_name ? ` — ${entry.contributor_name}` : ''}
+      </span>
+    )}
+    {entry.origin === 'AI_SUGGESTED' && (
+      <span className="rounded-full bg-marigold-500/15 px-2 py-0.5 text-xs text-marigold-600">Proposé par l'IA</span>
+    )}
+  </div>
+  {entry.source_question_count && (
+    <span className="text-xs text-neutral-400">
+      Basé sur {entry.source_question_count} question{entry.source_question_count > 1 ? 's' : ''}
+    </span>
+  )}
+</div>
 
       <input
         value={title}

@@ -9,6 +9,9 @@ export interface KnowledgeBaseEntry {
   sector: string;
   content: string;
   status: 'PUBLISHED' | 'DRAFT';
+  origin?: 'MANUAL' | 'AI_SUGGESTED' | 'PUBLIC_CONTRIBUTION';
+  contributor_name?: string;
+  contributor_contact?: string;
   source_question_count?: number;
   created_by?: string;
   created_at: string;

@@ -1,9 +1,10 @@
-// apps/ai-lab/src/features/chat/pages/ChatPage.tsx
 import { useState } from 'react';
 import Logo from '../../../components/Logo';
 import SectorPicker from '../components/SectorPicker';
 import ChatBubble from '../components/ChatBubble';
 import ChatInput from '../components/ChatInput';
+import PageTabs from '../components/PageTabs';
+import ContributionForm from '../../contribution/components/ContributionForm';
 import { askQuestion } from '../../../api/chat';
 
 interface Message {
@@ -18,6 +19,7 @@ const WELCOME_MESSAGE: Message = {
 };
 
 export default function ChatPage() {
+  const [activeTab, setActiveTab] = useState<'chat' | 'contribute'>('chat');
   const [sector, setSector] = useState('GENERAL');
   const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
   const [loading, setLoading] = useState(false);
@@ -50,24 +52,32 @@ export default function ChatPage() {
       </header>
 
       <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 py-6">
-        <div className="mb-4">
-          <SectorPicker value={sector} onChange={setSector} />
-        </div>
+        <PageTabs activeTab={activeTab} onChange={setActiveTab} />
 
-        <div className="flex flex-1 flex-col gap-3 overflow-y-auto pb-4">
-          {messages.map((msg, i) => (
-            <ChatBubble key={i} role={msg.role} content={msg.content} />
-          ))}
-          {loading && <ChatBubble role="assistant" content="..." />}
-        </div>
+        {activeTab === 'chat' ? (
+          <>
+            <div className="mb-4">
+              <SectorPicker value={sector} onChange={setSector} />
+            </div>
 
-        {error && <p className="mb-2 text-sm text-brick">{error}</p>}
+            <div className="flex flex-1 flex-col gap-3 overflow-y-auto pb-4">
+              {messages.map((msg, i) => (
+                <ChatBubble key={i} role={msg.role} content={msg.content} />
+              ))}
+              {loading && <ChatBubble role="assistant" content="..." />}
+            </div>
 
-        <ChatInput onSend={handleSend} disabled={loading} />
+            {error && <p className="mb-2 text-sm text-brick">{error}</p>}
 
-        <p className="mt-3 text-center text-xs text-neutral-400">
-          Réponses basées sur des données agrégées et anonymisées — 5 questions par jour maximum.
-        </p>
+            <ChatInput onSend={handleSend} disabled={loading} />
+
+            <p className="mt-3 text-center text-xs text-neutral-400">
+              Réponses basées sur des données agrégées et anonymisées — 5 questions par jour maximum.
+            </p>
+          </>
+        ) : (
+          <ContributionForm />
+        )}
       </div>
     </div>
   );
