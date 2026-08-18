@@ -8,5 +8,5 @@ export function mailtoLink(subject: string): string {
 }
 
 export const EXTERNAL_LINKS = {
-  aiLab: 'https://datainsight-ailab.netlify.app',
+  aiLab: 'http://ailab.kinemaplus.com',
 };
