@@ -6,9 +6,20 @@ interface FeatureBlockProps {
   points: string[];
   reversed?: boolean;
   accentColor?: string;
+  imageSrc?: string;
+  imageAlt?: string;
 }
 
-export default function FeatureBlock({ eyebrow, title, description, points, reversed, accentColor = 'violet' }: FeatureBlockProps) {
+export default function FeatureBlock({
+  eyebrow,
+  title,
+  description,
+  points,
+  reversed,
+  accentColor = 'violet',
+  imageSrc,
+  imageAlt = '',
+}: FeatureBlockProps) {
   return (
     <div className={`flex flex-col gap-8 md:flex-row ${reversed ? 'md:flex-row-reverse' : ''} md:items-center`}>
       <div className="flex-1">
@@ -24,8 +35,15 @@ export default function FeatureBlock({ eyebrow, title, description, points, reve
           ))}
         </ul>
       </div>
+
       <div className="flex-1">
-        <div className="aspect-[4/3] rounded-2xl bg-violet-gradient opacity-90" />
+        {imageSrc ? (
+          <div className="overflow-hidden rounded-2xl border border-neutral-200 shadow-[0_8px_30px_rgba(23,26,43,0.08)]">
+            <img src={imageSrc} alt={imageAlt} className="w-full object-cover object-top" />
+          </div>
+        ) : (
+          <div className="aspect-[4/3] rounded-2xl bg-violet-gradient opacity-90" />
+        )}
       </div>
     </div>
   );

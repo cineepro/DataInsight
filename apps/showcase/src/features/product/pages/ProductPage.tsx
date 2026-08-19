@@ -21,37 +21,43 @@ export default function ProductPage() {
       <section className="px-5 pb-16">
         <div className="mx-auto flex max-w-5xl flex-col gap-20">
           <FeatureBlock
-            eyebrow="Étape 1"
-            title="Une collecte sans friction"
-            description="Vos clients scannent un QR Code affiché sur place — chevalet de table, sticker de caisse, affiche à l'entrée."
-            points={[
-              'Aucune inscription requise côté client',
-              'Formulaire adapté à votre secteur (restaurant, pharmacie...)',
-              'Réponse en moins de 30 secondes',
-              'Reconnaissance des clients fidèles, sans données intrusives',
-            ]}
-          />
-          <FeatureBlock
-            eyebrow="Étape 2"
-            title="Un traitement hybride, humain et algorithmique"
-            description="Vos données sont analysées par des algorithmes précis, interprétées par une intelligence artificielle, puis validées par un analyste."
-            points={[
-              'Détection des pics de satisfaction et des points faibles',
-              "Croisement de vos données avec le contexte (météo, événements)",
-              'Jamais de publication automatique sans relecture humaine',
-            ]}
-            reversed
-          />
-          <FeatureBlock
-            eyebrow="Étape 3"
-            title="Des recommandations qu'on peut vraiment appliquer"
-            description="Chaque semaine, un espace personnel avec vos statistiques en graphiques et des directives concrètes."
-            points={[
-              'Espace dédié, accessible à tout moment',
-              'Graphiques visuels de vos indicateurs clés',
-              'Recommandations actionnables, pas juste des chiffres',
-            ]}
-          />
+  eyebrow="Étape 1"
+  title="Une collecte sans friction"
+  description="Vos clients scannent un QR Code affiché sur place — chevalet de table, sticker de caisse, affiche à l'entrée."
+  points={[
+    'Aucune inscription requise côté client',
+    'Formulaire adapté à votre secteur (restaurant, pharmacie...)',
+    'Réponse en moins de 30 secondes',
+    'Reconnaissance des clients fidèles, sans données intrusives',
+  ]}
+  imageSrc="/screenshots/collecte.png"
+  imageAlt="Suivi de fidélité client dans le Studio ASILLIA"
+/>
+<FeatureBlock
+  eyebrow="Étape 2"
+  title="Un traitement hybride, humain et algorithmique"
+  description="Vos données sont analysées par des algorithmes précis, interprétées par une intelligence artificielle, puis validées par un analyste."
+  points={[
+    'Détection des pics de satisfaction et des points faibles',
+    "Croisement de vos données avec le contexte (météo, événements)",
+    'Jamais de publication automatique sans relecture humaine',
+  ]}
+  reversed
+  imageSrc="/screenshots/analyse.png"
+  imageAlt="Écran de lancement d'analyse du Studio ASILLIA"
+/>
+<FeatureBlock
+  eyebrow="Étape 3"
+  title="Des recommandations qu'on peut vraiment appliquer"
+  description="Chaque semaine, un espace personnel avec vos statistiques en graphiques et des directives concrètes."
+  points={[
+    'Espace dédié, accessible à tout moment',
+    'Graphiques visuels de vos indicateurs clés',
+    'Recommandations actionnables, pas juste des chiffres',
+  ]}
+  imageSrc="/screenshots/restitution.png"
+  imageAlt="Rapport d'analyse détaillé ASILLIA DataInsight"
+/>
         </div>
       </section>
 
