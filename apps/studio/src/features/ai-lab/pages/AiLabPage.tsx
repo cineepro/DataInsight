@@ -1,32 +1,38 @@
-// apps/studio/src/features/ai-lab/pages/AiLabPage.tsx
+//apps/studio/src/features/ai-lab/pages/AiLabPage.tsx
 import { useEffect, useState } from 'react';
 import { listKnowledgeBaseEntries, listRecentChatLogs, type KnowledgeBaseEntry, type AiChatLog } from '../../../api/aiLab';
+import { listImportedDocuments, type ImportedDocument } from '../../../api/documents';
 import KnowledgeBaseForm from '../components/KnowledgeBaseForm';
 import KnowledgeBaseList from '../components/KnowledgeBaseList';
 import DraftReviewCard from '../components/DraftReviewCard';
 import ChatLogItem from '../components/ChatLogItem';
+import DocumentUploadForm from '../components/DocumentUploadForm';
+import DocumentList from '../components/DocumentList';
 import Tabs from '../../../components/ui/Tabs';
 import Card from '../../../components/ui/Card';
 
-type TabId = 'drafts' | 'knowledge' | 'logs';
+type TabId = 'drafts' | 'knowledge' | 'documents' | 'logs';
 
 export default function AiLabPage() {
   const [activeTab, setActiveTab] = useState<TabId>('drafts');
   const [drafts, setDrafts] = useState<KnowledgeBaseEntry[]>([]);
   const [published, setPublished] = useState<KnowledgeBaseEntry[]>([]);
   const [logs, setLogs] = useState<AiChatLog[]>([]);
+  const [documents, setDocuments] = useState<ImportedDocument[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function refresh() {
     setLoading(true);
-    const [d, p, l] = await Promise.all([
+    const [d, p, l, docs] = await Promise.all([
       listKnowledgeBaseEntries('DRAFT'),
       listKnowledgeBaseEntries('PUBLISHED'),
       listRecentChatLogs(),
+      listImportedDocuments(),
     ]);
     setDrafts(d);
     setPublished(p);
     setLogs(l);
+    setDocuments(docs);
     setLoading(false);
   }
 
@@ -37,6 +43,7 @@ export default function AiLabPage() {
   const tabs = [
     { id: 'drafts', label: `À valider (${drafts.length})` },
     { id: 'knowledge', label: `Base de connaissances (${published.length})` },
+    { id: 'documents', label: `Documents (${documents.length})` },
     { id: 'logs', label: `Questions posées (${logs.length})` },
   ];
 
@@ -66,6 +73,11 @@ export default function AiLabPage() {
         <div className="flex flex-col gap-4">
           <KnowledgeBaseForm onCreated={refresh} />
           <KnowledgeBaseList entries={published} onDeleted={refresh} />
+        </div>
+      ) : activeTab === 'documents' ? (
+        <div className="flex flex-col gap-4">
+          <DocumentUploadForm onUploaded={refresh} />
+          <DocumentList documents={documents} />
         </div>
       ) : (
         <Card>

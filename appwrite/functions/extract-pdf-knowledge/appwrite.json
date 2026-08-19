@@ -1,0 +1,14 @@
+{
+  "functionId": "extract-pdf-knowledge",
+  "name": "extract-pdf-knowledge",
+  "runtime": "node-18.0",
+  "execute": ["team:admins"],
+  "events": [],
+  "schedule": "",
+  "timeout": 120,
+  "enabled": true,
+  "logging": true,
+  "entrypoint": "dist/main.js",
+  "commands": "npm install && npm run build",
+  "path": "functions/extract-pdf-knowledge"
+}

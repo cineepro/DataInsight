@@ -1,5 +1,5 @@
-// apps/studio/src/api/appwrite.ts
-import { Client, Account, Databases, Teams, Functions } from 'appwrite';
+//apps/studio/src/api/appwrite.ts
+import { Client, Account, Databases, Teams, Functions, Storage } from 'appwrite';
 
 const client = new Client()
   .setEndpoint(import.meta.env.VITE_APPWRITE_ENDPOINT)
@@ -9,4 +9,5 @@ export const account = new Account(client);
 export const databases = new Databases(client);
 export const teams = new Teams(client);
 export const functions = new Functions(client);
+export const storage = new Storage(client);
 export default client;
