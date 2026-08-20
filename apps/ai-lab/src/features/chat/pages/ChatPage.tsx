@@ -46,8 +46,8 @@ export default function ChatPage() {
       <header className="flex items-center gap-2 border-b border-neutral-200 bg-white px-6 py-4">
         <Logo className="text-marigold-500" />
         <div>
-          <span className="font-display text-base font-medium text-ink">ASILLIA AI Lab</span>
-          <p className="text-xs text-neutral-400">Assistant IA — commerce en Afrique de l'Ouest</p>
+          <span className="font-display text-base font-medium text-ink">Astra</span>
+          <p className="text-xs text-neutral-400">Assistant IA — spécialisé en Afrique de l'Ouest</p>
         </div>
       </header>
 
