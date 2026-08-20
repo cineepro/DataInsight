@@ -15,7 +15,7 @@ interface Message {
 const WELCOME_MESSAGE: Message = {
   role: 'assistant',
   content:
-    "Bonjour ! Je suis l'assistant IA d'ASILLIA DataInsight. Je réponds à vos questions sur le commerce en Afrique de l'Ouest — restauration, pharmacie, hôtellerie, commerce de détail — en m'appuyant sur des données réelles et anonymisées. Choisissez un secteur ci-dessous puis posez votre question.",
+    "Bonjour ! Je suis Astra, l'assistant IA d'ASILLIA DataInsight. Je réponds à vos questions sur le commerce en Afrique de l'Ouest — restauration, pharmacie, hôtellerie, commerce de détail — en m'appuyant sur des données réelles et anonymisées. Choisissez un secteur ci-dessous puis posez votre question.",
 };
 
 export default function ChatPage() {

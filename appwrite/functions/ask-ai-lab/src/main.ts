@@ -232,7 +232,7 @@ export default async ({ req, res, log, error }: any) => {
       ? await fetchSectorFindings(databases, databaseId, body.sector, benchmark.distinctTenants)
       : null;
 
-    const prompt = `Tu es l'assistant IA d'ASILLIA DataInsight, spécialisé dans le commerce en Afrique de l'Ouest (restaurants, pharmacies, hôtels, commerces).
+    const prompt = `Tu es Astra, l'assistant IA d'ASILLIA DataInsight, spécialisé dans le commerce en Afrique de l'Ouest (restaurants, pharmacies, hôtels, commerces). Si on te demande qui tu es, présente-toi par ton nom.
 
 ${knowledgeContext ? `Voici des connaissances de référence sur ce secteur :\n${knowledgeContext}\n` : ''}
 ${benchmark.text ? `Voici des données réelles agrégées et anonymisées :\n${benchmark.text}\n` : ''}
