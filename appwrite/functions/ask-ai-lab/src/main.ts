@@ -1,17 +1,18 @@
 //appwrite/functions/ask-ai-lab/src/main.ts
-import { Client, Databases, Query, ID } from 'node-appwrite';
+import { Client, Databases, Query, ID, Users } from 'node-appwrite';
 import { hashVisitorToken } from './hashVisitor';
 
 interface RequestPayload {
   question: string;
-  sector: string; // GENERAL | RESTAURATION | HOTELLERIE | PHARMACIE | COMMERCE_DETAIL
+  sector: string;
   visitor_token: string;
+  conversation_id?: string; // fourni par le front si une conversation Premium est déjà en cours
 }
 
-const RATE_LIMIT_MAX_PER_DAY = 5;
 const RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const MIN_TENANTS_FOR_BENCHMARK = 3; // sous ce seuil, aucun chiffre n'est renvoyé (anonymat)
-const MAX_FINDINGS_IN_CONTEXT = 12; // filet de sécurité token — pas la peine d'envoyer 100 findings à Claude
+const FREE_DAILY_LIMIT = 5;
+const MIN_TENANTS_FOR_BENCHMARK = 3;
+const MAX_FINDINGS_IN_CONTEXT = 12;
 
 const SECTOR_TO_TENANT_CATEGORIES: Record<string, string[]> = {
   RESTAURATION: ['RESTAURANT', 'FASTFOOD'],
@@ -21,13 +22,61 @@ const SECTOR_TO_TENANT_CATEGORIES: Record<string, string[]> = {
   GENERAL: [],
 };
 
+interface AiLabAccount {
+  $id: string;
+  user_id: string;
+  plan: 'FREE' | 'PREMIUM';
+  daily_question_limit: number;
+}
+
 /**
- * Calcule des moyennes ANONYMISÉES croisant TOUTES les structures d'une
- * ou plusieurs catégories, jamais une structure identifiée. Si moins de
- * MIN_TENANTS_FOR_BENCHMARK structures distinctes contribuent, ne renvoie
- * aucun chiffre — pour qu'aucune moyenne ne puisse être ré-attribuée à une
- * entreprise précise par déduction.
+ * Retrouve le compte ai_lab_accounts de l'utilisateur authentifié, s'il y
+ * en a un. Retourne null pour un visiteur anonyme — c'est ce qui permet à
+ * toute la suite de la Function de continuer à fonctionner exactement
+ * comme avant pour le mode gratuit sans compte.
  */
+async function getAccountForUser(databases: any, databaseId: string, userId: string | null): Promise<AiLabAccount | null> {
+  if (!userId) return null;
+
+  const result = await databases.listDocuments(databaseId, process.env.APPWRITE_COLLECTION_AI_LAB_ACCOUNTS!, [
+    Query.equal('user_id', userId),
+    Query.limit(1),
+  ]);
+
+  return (result.documents[0] as unknown as AiLabAccount) ?? null;
+}
+
+/**
+ * Vérifie le quota selon le type d'appelant :
+ * - Compte connecté (FREE ou PREMIUM) : quota compté par user_id, propre
+ *   à ce compte, peu importe l'appareil utilisé.
+ * - Visiteur anonyme : quota compté par visitor_hash, comme avant.
+ */
+async function checkAndRecordRateLimit(
+  databases: any,
+  databaseId: string,
+  key: string,
+  limit: number
+): Promise<boolean> {
+  const rateLimitCollectionId = process.env.APPWRITE_COLLECTION_AI_LAB_RATE_LIMIT!;
+  const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
+
+  const recent = await databases.listDocuments(databaseId, rateLimitCollectionId, [
+    Query.equal('visitor_hash', key),
+    Query.greaterThan('timestamp', windowStart),
+    Query.limit(limit + 1),
+  ]);
+
+  if (recent.documents.length >= limit) return false;
+
+  await databases.createDocument(databaseId, rateLimitCollectionId, ID.unique(), {
+    visitor_hash: key,
+    timestamp: new Date().toISOString(),
+  });
+
+  return true;
+}
+
 async function computeSectorBenchmark(
   databases: any,
   databaseId: string,
@@ -68,7 +117,7 @@ async function computeSectorBenchmark(
   }
 
   if (distinctTenants.size < MIN_TENANTS_FOR_BENCHMARK) {
-    return { text: null, distinctTenants: new Set() }; // set vidé : signal clair "pas assez pour l'anonymat"
+    return { text: null, distinctTenants: new Set() };
   }
 
   const avgSatisfaction =
@@ -81,21 +130,9 @@ async function computeSectorBenchmark(
   return { text, distinctTenants };
 }
 
-/**
- * Récupère les keyFindings des rapports PUBLIÉS (hebdo + données brutes)
- * des structures du secteur concerné, sur les 30 derniers jours.
- *
- * Sécurité anonymat : n'est appelée QUE si computeSectorBenchmark a déjà
- * confirmé au moins MIN_TENANTS_FOR_BENCHMARK structures distinctes. Les
- * findings de toutes les structures sont ensuite MÉLANGÉS ensemble et
- * présentés comme une liste commune, jamais attribués individuellement à
- * une structure précise — pour qu'aucun finding cité ne puisse être
- * reconnu comme appartenant à une entreprise identifiable.
- */
 async function fetchSectorFindings(
   databases: any,
   databaseId: string,
-  sector: string,
   eligibleTenantIds: Set<string>
 ): Promise<string | null> {
   if (eligibleTenantIds.size < MIN_TENANTS_FOR_BENCHMARK) return null;
@@ -103,7 +140,6 @@ async function fetchSectorFindings(
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const allFindings: string[] = [];
 
-  // --- Rapports hebdomadaires publiés ---
   const weeklyResult = await databases.listDocuments(databaseId, process.env.APPWRITE_COLLECTION_WEEKLY_REPORTS!, [
     Query.equal('status', 'PUBLISHED'),
     Query.greaterThan('published_at', since),
@@ -111,18 +147,15 @@ async function fetchSectorFindings(
   ]);
 
   for (const report of weeklyResult.documents as any[]) {
-    if (!eligibleTenantIds.has(report.tenant_id)) continue; // uniquement les tenants déjà comptés dans le benchmark de CE secteur
+    if (!eligibleTenantIds.has(report.tenant_id)) continue;
     try {
       const results = JSON.parse(report.analysis_result) as Array<{ keyFindings: string[] }>;
       for (const r of results) {
         if (Array.isArray(r.keyFindings)) allFindings.push(...r.keyFindings);
       }
-    } catch {
-      // rapport mal formé, ignoré
-    }
+    } catch {}
   }
 
-  // --- Rapports de données brutes publiés ---
   const datasetResult = await databases.listDocuments(databaseId, process.env.APPWRITE_COLLECTION_DATASET_REPORTS!, [
     Query.equal('status', 'PUBLISHED'),
     Query.greaterThan('published_at', since),
@@ -136,15 +169,11 @@ async function fetchSectorFindings(
       for (const r of results) {
         if (Array.isArray(r.keyFindings)) allFindings.push(...r.keyFindings);
       }
-    } catch {
-      // rapport mal formé, ignoré
-    }
+    } catch {}
   }
 
   if (allFindings.length === 0) return null;
 
-  // Mélange (Fisher-Yates) pour casser tout ordre qui pourrait laisser
-  // deviner "ces 3 findings à la suite viennent de la même structure".
   for (let i = allFindings.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [allFindings[i], allFindings[j]] = [allFindings[j], allFindings[i]];
@@ -167,6 +196,52 @@ async function fetchKnowledgeBase(databases: any, databaseId: string, sector: st
   return result.documents
     .map((doc: any) => `### ${doc.title}\n${doc.content}`)
     .join('\n\n');
+}
+
+/**
+ * Sauvegarde la question/réponse dans l'historique persistant, réservé
+ * aux comptes Premium. Crée la conversation si conversation_id n'est pas
+ * fourni (première question d'un nouvel échange).
+ */
+async function saveToHistory(
+  databases: any,
+  databaseId: string,
+  userId: string,
+  conversationId: string | undefined,
+  question: string,
+  answer: string
+): Promise<string> {
+  let convId = conversationId;
+
+  if (!convId) {
+    const created = await databases.createDocument(databaseId, process.env.APPWRITE_COLLECTION_AI_LAB_CONVERSATIONS!, ID.unique(), {
+      user_id: userId,
+      title: question.slice(0, 80),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+    convId = created.$id;
+  } else {
+    await databases.updateDocument(databaseId, process.env.APPWRITE_COLLECTION_AI_LAB_CONVERSATIONS!, convId, {
+      updated_at: new Date().toISOString(),
+    });
+  }
+
+  await databases.createDocument(databaseId, process.env.APPWRITE_COLLECTION_AI_LAB_MESSAGES!, ID.unique(), {
+    conversation_id: convId,
+    role: 'USER',
+    content: question,
+    created_at: new Date().toISOString(),
+  });
+
+  await databases.createDocument(databaseId, process.env.APPWRITE_COLLECTION_AI_LAB_MESSAGES!, ID.unique(), {
+    conversation_id: convId,
+    role: 'ASSISTANT',
+    content: answer,
+    created_at: new Date().toISOString(),
+  });
+
+  return convId;
 }
 
 export default async ({ req, res, log, error }: any) => {
@@ -195,29 +270,27 @@ export default async ({ req, res, log, error }: any) => {
     const databaseId = process.env.APPWRITE_DATABASE_ID!;
     const visitorHash = hashVisitorToken(body.visitor_token);
 
-    // --- Anti-abus : quota quotidien par visiteur ---
-    const rateLimitCollectionId = process.env.APPWRITE_COLLECTION_AI_LAB_RATE_LIMIT!;
-    const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
+    // --- Identifier l'appelant : connecté ou anonyme ---
+    // execute: ["any"] laisse passer les deux cas ; ce header n'est présent
+    // que si une session valide a accompagné l'appel.
+    const callerUserId = req.headers?.['x-appwrite-user-id'] || null;
+    const aiLabAccount = await getAccountForUser(databases, databaseId, callerUserId);
 
-    const recent = await databases.listDocuments(databaseId, rateLimitCollectionId, [
-      Query.equal('visitor_hash', visitorHash),
-      Query.greaterThan('timestamp', windowStart),
-      Query.limit(RATE_LIMIT_MAX_PER_DAY + 1),
-    ]);
+    log('Appelant: ' + (aiLabAccount ? `compte ${aiLabAccount.plan}` : 'anonyme'));
 
-    if (recent.documents.length >= RATE_LIMIT_MAX_PER_DAY) {
+    // --- Quota selon le type de compte ---
+    const rateLimitKey = aiLabAccount ? `account_${aiLabAccount.user_id}` : visitorHash;
+    const rateLimitValue = aiLabAccount ? aiLabAccount.daily_question_limit : FREE_DAILY_LIMIT;
+
+    const allowed = await checkAndRecordRateLimit(databases, databaseId, rateLimitKey, rateLimitValue);
+    if (!allowed) {
       return res.json(
-        { error: `Limite de ${RATE_LIMIT_MAX_PER_DAY} questions par jour atteinte. Revenez demain !` },
+        { error: `Limite de ${rateLimitValue} questions par jour atteinte. ${aiLabAccount ? '' : 'Créez un compte pour un quota plus élevé, ou '}revenez demain !` },
         429
       );
     }
 
-    await databases.createDocument(databaseId, rateLimitCollectionId, ID.unique(), {
-      visitor_hash: visitorHash,
-      timestamp: new Date().toISOString(),
-    });
-
-    // --- Construction du contexte RAG ---
+    // --- Construction du contexte RAG (inchangé) ---
     log('Construction du contexte pour secteur=' + body.sector);
 
     const [knowledgeContext, benchmark] = await Promise.all([
@@ -225,11 +298,8 @@ export default async ({ req, res, log, error }: any) => {
       computeSectorBenchmark(databases, databaseId, body.sector),
     ]);
 
-    // Ne cherche les findings QUE si le benchmark a validé l'anonymat —
-    // évite un appel inutile si le secteur n'a de toute façon pas assez
-    // de structures actives.
     const findingsContext = benchmark.distinctTenants.size >= MIN_TENANTS_FOR_BENCHMARK
-      ? await fetchSectorFindings(databases, databaseId, body.sector, benchmark.distinctTenants)
+      ? await fetchSectorFindings(databases, databaseId, benchmark.distinctTenants)
       : null;
 
     const prompt = `Tu es Astra, l'assistant IA d'ASILLIA DataInsight, spécialisé dans le commerce en Afrique de l'Ouest (restaurants, pharmacies, hôtels, commerces). Si on te demande qui tu es, présente-toi par ton nom.
@@ -244,7 +314,7 @@ Consignes :
 1. Réponds de façon concise (maximum 150 mots), claire et actionnable.
 2. Si tu t'appuies sur les données ou constats ci-dessus, mentionne-le explicitement, mais reste toujours au niveau du secteur dans son ensemble.
 3. Si tu n'as pas assez d'information pour répondre précisément, dis-le honnêtement plutôt que d'inventer.
-4. Ne mentionne JAMAIS de structure ou d'entreprise nommée, ni aucun détail qui permettrait d'identifier une structure précise (nom de produit très spécifique, date exacte, lieu précis) — reformule toujours en tendance générale du secteur.
+4. Ne mentionne JAMAIS de structure ou d'entreprise nommée, ni aucun détail qui permettrait d'identifier une structure précise.
 5. Termine en rappelant brièvement qu'ASILLIA DataInsight peut approfondir cette analyse pour une structure spécifique.`;
 
     const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
@@ -257,7 +327,7 @@ Consignes :
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 400,
-        messages: [{ role: 'user', content: prompt }],
+        messages: [{ role: 'user', content: body.question ? prompt : prompt }],
       }),
     });
 
@@ -273,6 +343,9 @@ Consignes :
       .map((block: any) => block.text)
       .join('\n');
 
+    // --- Journalisation : toujours dans ai_chat_logs (pour ton usage
+    // interne, summarize-chat-logs) + en plus dans l'historique persistant
+    // SI le compte est Premium ---
     await databases.createDocument(databaseId, process.env.APPWRITE_COLLECTION_AI_CHAT_LOGS!, ID.unique(), {
       visitor_hash: visitorHash,
       sector: body.sector,
@@ -281,7 +354,12 @@ Consignes :
       created_at: new Date().toISOString(),
     });
 
-    return res.json({ answer }, 200);
+    let conversationId: string | undefined;
+    if (aiLabAccount?.plan === 'PREMIUM' && callerUserId) {
+      conversationId = await saveToHistory(databases, databaseId, callerUserId, body.conversation_id, body.question, answer);
+    }
+
+    return res.json({ answer, conversation_id: conversationId }, 200);
   } catch (err) {
     error('Erreur ask-ai-lab: ' + (err as Error).message);
     return res.json({ error: 'Erreur serveur.' }, 500);

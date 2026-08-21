@@ -1,13 +1,18 @@
-// apps/ai-lab/src/api/chat.ts
+//apps/ai-lab/src/api/chat.ts
 import { functions } from './client';
 import { getOrCreateVisitorToken } from '../utils/visitorToken';
 
 interface AskResponse {
   answer?: string;
+  conversation_id?: string;
   error?: string;
 }
 
-export async function askQuestion(question: string, sector: string): Promise<string> {
+export async function askQuestion(
+  question: string,
+  sector: string,
+  conversationId?: string
+): Promise<{ answer: string; conversationId?: string }> {
   const functionId = import.meta.env.VITE_FUNCTION_ASK_AI_LAB;
 
   const execution = await functions.createExecution(
@@ -16,6 +21,7 @@ export async function askQuestion(question: string, sector: string): Promise<str
       question,
       sector,
       visitor_token: getOrCreateVisitorToken(),
+      conversation_id: conversationId,
     }),
     false
   );
@@ -26,5 +32,5 @@ export async function askQuestion(question: string, sector: string): Promise<str
     throw new Error(parsed.error ?? "Erreur lors de la génération de la réponse.");
   }
 
-  return parsed.answer;
+  return { answer: parsed.answer, conversationId: parsed.conversation_id };
 }
