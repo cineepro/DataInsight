@@ -228,20 +228,20 @@ async function saveToHistory(
   }
 
   await databases.createDocument(databaseId, process.env.APPWRITE_COLLECTION_AI_LAB_MESSAGES!, ID.unique(), {
-    conversation_id: convId,
+    conversation_id: convId!,
     role: 'USER',
     content: question,
     created_at: new Date().toISOString(),
   });
 
   await databases.createDocument(databaseId, process.env.APPWRITE_COLLECTION_AI_LAB_MESSAGES!, ID.unique(), {
-    conversation_id: convId,
+    conversation_id: convId!,
     role: 'ASSISTANT',
     content: answer,
     created_at: new Date().toISOString(),
   });
 
-  return convId;
+  return convId!;
 }
 
 export default async ({ req, res, log, error }: any) => {
