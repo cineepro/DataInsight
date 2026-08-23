@@ -22,7 +22,7 @@ export default function LoginPage() {
       navigate('/');
     } catch (err) {
       console.error(err);
-      setError('Identifiants invalides.');
+      setError(err instanceof Error ? err.message : 'Identifiants invalides.');
     } finally {
       setLoading(false);
     }

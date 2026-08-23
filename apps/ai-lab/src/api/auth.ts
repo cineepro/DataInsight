@@ -21,12 +21,22 @@ export interface AiLabSession {
 }
 
 export async function getCurrentAiLabSession(): Promise<AiLabSession | null> {
+  let user;
   try {
-    const user = await account.get();
+    user = await account.get();
+  } catch {
+    return null; // pas de session active — cas normal, silence attendu ici
+  }
+
+  // À partir d'ici, la session Appwrite existe bel et bien — toute erreur
+  // qui suit est un VRAI problème (config, permissions) qu'il ne faut plus
+  // masquer silencieusement.
+  try {
     const accountDoc = await getOrCreateAccountDoc(user.$id, user.email);
     return { userId: user.$id, email: user.email, account: accountDoc };
-  } catch {
-    return null;
+  } catch (err) {
+    console.error('Erreur lors de la récupération/création du compte ai_lab_accounts:', err);
+    throw err; // remonte l'erreur réelle au lieu de retourner null silencieusement
   }
 }
 
