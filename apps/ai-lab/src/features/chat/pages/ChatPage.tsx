@@ -73,19 +73,24 @@ export default function ChatPage() {
         </div>
 
         {checkingSession ? null : session ? (
-          <div className="flex items-center gap-3">
-            <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-600">
-              {session.account?.plan === 'PREMIUM' ? 'Premium' : 'Gratuit'}
-            </span>
-            <button onClick={handleLogout} className="text-xs text-neutral-500 underline">
-              Déconnexion
-            </button>
-          </div>
-        ) : (
-          <Link to="/login" className="rounded-full border border-neutral-300 px-4 py-1.5 text-xs font-medium text-ink">
-            Se connecter
-          </Link>
-        )}
+  <div className="flex items-center gap-3">
+    <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-600">
+      {session.account?.plan === 'PREMIUM' ? 'Premium' : 'Gratuit'}
+    </span>
+    {session.account?.plan === 'PREMIUM' && (
+      <Link to="/history" className="text-xs text-ink underline">
+        Mes conversations
+      </Link>
+    )}
+    <button onClick={handleLogout} className="text-xs text-neutral-500 underline">
+      Déconnexion
+    </button>
+  </div>
+) : (
+  <Link to="/login" className="rounded-full border border-neutral-300 px-4 py-1.5 text-xs font-medium text-ink">
+    Se connecter
+  </Link>
+)}
       </header>
 
       <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 py-6">
