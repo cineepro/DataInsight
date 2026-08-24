@@ -24,6 +24,7 @@ export const COLLECTIONS = {
   ANALYSIS_THRESHOLDS: import.meta.env.VITE_COLLECTION_ANALYSIS_THRESHOLDS,
   ANNOUNCEMENTS: import.meta.env.VITE_COLLECTION_ANNOUNCEMENTS,
   IMPORTED_DOCUMENTS: import.meta.env.VITE_COLLECTION_IMPORTED_DOCUMENTS,
+  OFFICIAL_SOURCES: import.meta.env.VITE_COLLECTION_OFFICIAL_SOURCES,
 } as const;
 
 // TEAMS : noms lisibles, utilisés uniquement pour COMPARER l'appartenance

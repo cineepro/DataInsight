@@ -93,6 +93,12 @@ export default function ChatPage() {
 )}
       </header>
 
+<div className="mx-auto mt-2 w-full max-w-2xl px-4">
+  <Link to="/sources" className="text-xs text-neutral-400 underline">
+    Voir nos sources officielles
+  </Link>
+</div>
+
       <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 py-6">
         <PageTabs activeTab={activeTab} onChange={setActiveTab} />
 

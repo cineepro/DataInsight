@@ -10,8 +10,13 @@ import DocumentUploadForm from '../components/DocumentUploadForm';
 import DocumentList from '../components/DocumentList';
 import Tabs from '../../../components/ui/Tabs';
 import Card from '../../../components/ui/Card';
+import { listOfficialSources } from '../../../api/officialSources';
+import type { OfficialSource } from '@datainsight/shared';
+import OfficialSourceForm from '../components/OfficialSourceForm';
+import OfficialSourceList from '../components/OfficialSourceList';
 
-type TabId = 'drafts' | 'knowledge' | 'documents' | 'logs';
+//type TabId = 'drafts' | 'knowledge' | 'documents' | 'logs';
+type TabId = 'drafts' | 'knowledge' | 'documents' | 'sources' | 'logs';
 
 export default function AiLabPage() {
   const [activeTab, setActiveTab] = useState<TabId>('drafts');
@@ -21,31 +26,36 @@ export default function AiLabPage() {
   const [documents, setDocuments] = useState<ImportedDocument[]>([]);
   const [loading, setLoading] = useState(true);
 
-  async function refresh() {
-    setLoading(true);
-    const [d, p, l, docs] = await Promise.all([
-      listKnowledgeBaseEntries('DRAFT'),
-      listKnowledgeBaseEntries('PUBLISHED'),
-      listRecentChatLogs(),
-      listImportedDocuments(),
-    ]);
-    setDrafts(d);
-    setPublished(p);
-    setLogs(l);
-    setDocuments(docs);
-    setLoading(false);
-  }
+  const [officialSources, setOfficialSources] = useState<OfficialSource[]>([]);
+
+async function refresh() {
+  setLoading(true);
+  const [d, p, l, docs, sources] = await Promise.all([
+    listKnowledgeBaseEntries('DRAFT'),
+    listKnowledgeBaseEntries('PUBLISHED'),
+    listRecentChatLogs(),
+    listImportedDocuments(),
+    listOfficialSources(),
+  ]);
+  setDrafts(d);
+  setPublished(p);
+  setLogs(l);
+  setDocuments(docs);
+  setOfficialSources(sources);
+  setLoading(false);
+}
 
   useEffect(() => {
     refresh();
   }, []);
 
   const tabs = [
-    { id: 'drafts', label: `À valider (${drafts.length})` },
-    { id: 'knowledge', label: `Base de connaissances (${published.length})` },
-    { id: 'documents', label: `Documents (${documents.length})` },
-    { id: 'logs', label: `Questions posées (${logs.length})` },
-  ];
+  { id: 'drafts', label: `À valider (${drafts.length})` },
+  { id: 'knowledge', label: `Base de connaissances (${published.length})` },
+  { id: 'documents', label: `Documents (${documents.length})` },
+  { id: 'sources', label: `Sources officielles (${officialSources.length})` },
+  { id: 'logs', label: `Questions posées (${logs.length})` },
+];
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-8">
@@ -79,6 +89,11 @@ export default function AiLabPage() {
           <DocumentUploadForm onUploaded={refresh} />
           <DocumentList documents={documents} />
         </div>
+      ) : activeTab === 'sources' ? (
+  <div className="flex flex-col gap-4">
+    <OfficialSourceForm onCreated={refresh} />
+    <OfficialSourceList sources={officialSources} onChanged={refresh} />
+  </div>
       ) : (
         <Card>
           {logs.length === 0 ? (
