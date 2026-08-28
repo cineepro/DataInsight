@@ -1,5 +1,5 @@
-// apps/studio/src/features/customers/pages/CustomersPage.tsx
-import { useEffect, useState } from 'react';
+//apps/studio/src/features/customers/pages/CustomersPage.tsx
+import { useEffect, useState, useCallback } from 'react';
 import type { Tenant, TenantCategory, Customer } from '@datainsight/shared';
 import { listTenants } from '../../../api/tenants';
 import { listCustomersForTenant, updateCustomerStatus } from '../../../api/customers';
@@ -37,40 +37,48 @@ export default function CustomersPage() {
     listTenants(category).then(setTenants);
   }, [category]);
 
-  
-async function loadCustomers() {
-  const tenant = tenants.find((t) => t.$id === tenantId);
-  if (!tenant) return;
-  setLoading(true);
-  const data = await listCustomersForTenant(tenant.slug);
-  setCustomers(data);
-  const thresholds = await getThresholds('common.churn_risk');
-  setAnalysis(detectChurnRisk(data, thresholds)); // synchrone désormais, thresholds en paramètre explicite
-  setLoading(false);
-}
-
-async function handleSyncStatuses() {
-  setSyncing(true);
-  try {
+  const loadCustomers = useCallback(async () => {
+    const tenant = tenants.find((t) => t.$id === tenantId);
+    if (!tenant) return;
+    setLoading(true);
+    const data = await listCustomersForTenant(tenant.slug);
+    setCustomers(data);
     const thresholds = await getThresholds('common.churn_risk');
-    const freshAnalysis = detectChurnRisk(customers, thresholds); // synchrone désormais
-    await Promise.all(
-      freshAnalysis.map((entry) => {
-        const customer = customers.find((c) => c.$id === entry.customerId);
-        if (customer && customer.status !== entry.riskLevel) {
-          return updateCustomerStatus(entry.customerId, entry.riskLevel);
-        }
-        return Promise.resolve();
-      })
-    );
-    setAnalysis(freshAnalysis);
-  } catch (err) {
-    console.error(err);
-    alert('Erreur lors de la mise à jour des statuts.');
-  } finally {
-    setSyncing(false);
+    setAnalysis(detectChurnRisk(data, thresholds));
+    setLoading(false);
+  }, [tenantId, tenants]);
+
+  useEffect(() => {
+    if (tenantId) {
+      loadCustomers();
+    } else {
+      setCustomers([]);
+      setAnalysis([]);
+    }
+  }, [tenantId, loadCustomers]);
+
+  async function handleSyncStatuses() {
+    setSyncing(true);
+    try {
+      const thresholds = await getThresholds('common.churn_risk');
+      const freshAnalysis = detectChurnRisk(customers, thresholds);
+      await Promise.all(
+        freshAnalysis.map((entry) => {
+          const customer = customers.find((c) => c.$id === entry.customerId);
+          if (customer && customer.status !== entry.riskLevel) {
+            return updateCustomerStatus(entry.customerId, entry.riskLevel);
+          }
+          return Promise.resolve();
+        })
+      );
+      setAnalysis(freshAnalysis);
+    } catch (err) {
+      console.error(err);
+      alert('Erreur lors de la mise à jour des statuts.');
+    } finally {
+      setSyncing(false);
+    }
   }
-}
 
   const selectedCustomer = customers.find((c) => c.$id === selectedCustomerId);
   const selectedAnalysis = analysis.find((a) => a.customerId === selectedCustomerId);

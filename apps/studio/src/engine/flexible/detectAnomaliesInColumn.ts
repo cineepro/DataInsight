@@ -1,2 +1,4 @@
-//apps/studio/src/engine/flexible/detectAnomaliesInColumn.ts
-export { detectAnomaliesInColumn, FUNCTION_ID } from '@datainsight/engine';
+export {
+  detectAnomaliesInColumn,
+  FLEXIBLE_DETECT_ANOMALIES_FUNCTION_ID as FUNCTION_ID,
+} from '@datainsight/engine';
