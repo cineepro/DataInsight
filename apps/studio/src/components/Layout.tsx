@@ -15,6 +15,7 @@ const NAV_LINKS = [
   { to: '/ai-lab', label: 'AI Lab' },
   { to: '/thresholds', label: 'Seuils' },
   { to: '/announcements', label: 'Actualités' },
+  { to: '/api-keys', label: 'Clés API' },
 ];
 
 export default function Layout() {

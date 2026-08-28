@@ -10,6 +10,8 @@ import CustomerList from '../components/CustomerList';
 import CustomerDetailCard from '../components/CustomerDetailCard';
 import Button from '../../../components/ui/Button';
 
+import { getThresholds } from '../../../engine/thresholds';
+
 const CATEGORY_OPTIONS = [
   { label: 'Restauration', value: 'RESTAURANT' },
   { label: 'Fast-food', value: 'FASTFOOD' },
@@ -35,28 +37,23 @@ export default function CustomersPage() {
     listTenants(category).then(setTenants);
   }, [category]);
 
-  async function loadCustomers() {
+  
+async function loadCustomers() {
   const tenant = tenants.find((t) => t.$id === tenantId);
   if (!tenant) return;
   setLoading(true);
   const data = await listCustomersForTenant(tenant.slug);
   setCustomers(data);
-  setAnalysis(await detectChurnRisk(data)); // AVANT : detectChurnRisk(data) sans await
+  const thresholds = await getThresholds('common.churn_risk');
+  setAnalysis(detectChurnRisk(data, thresholds)); // synchrone désormais, thresholds en paramètre explicite
   setLoading(false);
 }
 
-  useEffect(() => {
-    if (tenantId) loadCustomers();
-    else {
-      setCustomers([]);
-      setAnalysis([]);
-    }
-  }, [tenantId, tenants]);
-
-  async function handleSyncStatuses() {
+async function handleSyncStatuses() {
   setSyncing(true);
   try {
-    const freshAnalysis = await detectChurnRisk(customers); // AVANT : sans await
+    const thresholds = await getThresholds('common.churn_risk');
+    const freshAnalysis = detectChurnRisk(customers, thresholds); // synchrone désormais
     await Promise.all(
       freshAnalysis.map((entry) => {
         const customer = customers.find((c) => c.$id === entry.customerId);

@@ -25,6 +25,8 @@ export const COLLECTIONS = {
   ANNOUNCEMENTS: import.meta.env.VITE_COLLECTION_ANNOUNCEMENTS,
   IMPORTED_DOCUMENTS: import.meta.env.VITE_COLLECTION_IMPORTED_DOCUMENTS,
   OFFICIAL_SOURCES: import.meta.env.VITE_COLLECTION_OFFICIAL_SOURCES,
+   API_KEYS: import.meta.env.VITE_COLLECTION_API_KEYS,
+  API_USAGE_LOGS: import.meta.env.VITE_COLLECTION_API_USAGE_LOGS,
 } as const;
 
 // TEAMS : noms lisibles, utilisés uniquement pour COMPARER l'appartenance

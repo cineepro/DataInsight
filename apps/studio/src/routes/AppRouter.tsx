@@ -24,6 +24,8 @@ import ThresholdsPage from '../features/thresholds/pages/ThresholdsPage';
 
 import AnnouncementsPage from '../features/announcements/pages/AnnouncementsPage';
 
+import ApiKeysPage from '../features/api-keys/pages/ApiKeysPage';
+
 interface AuthState {
   session: AdminSession | null;
   loading: boolean;
@@ -74,6 +76,7 @@ export default function AppRouter() {
           <Route path="/ai-lab" element={<AiLabPage />} />
           <Route path="/thresholds" element={<ThresholdsPage />} />
           <Route path="/announcements" element={<AnnouncementsPage />} />
+          <Route path="/api-keys" element={<ApiKeysPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -35,6 +35,8 @@ import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
 import ProgressBar from '../../../components/ui/ProgressBar';
 
+import { getThresholds } from '../../../engine/thresholds';
+
 export default function DatasetDetailPage() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
@@ -152,7 +154,7 @@ export default function DatasetDetailPage() {
     }
   }
 
-  async function runConfig(config: FlexibleFunctionConfig, periodLabel: string): Promise<AnalysisResult | null> {
+  function runConfig(config: FlexibleFunctionConfig, periodLabel: string, thresholds: Record<string, number>): AnalysisResult | null {
   const findCol = (key: string) => columns.find((c) => c.key === key) ?? null;
 
   switch (config.type) {
@@ -170,78 +172,78 @@ export default function DatasetDetailPage() {
       const a = findCol(config.columnAKey);
       const b = findCol(config.columnBKey);
       if (!a || !b) return null;
-      return await crossCorrelateColumns(rows, a, b, periodLabel); // AVANT : sans await
+      return crossCorrelateColumns(rows, a, b, periodLabel, thresholds); // synchrone désormais
     }
     case 'detect_anomalies': {
       const metric = findCol(config.metricKey);
       if (!metric) return null;
-      return await detectAnomaliesInColumn(rows, metric, config.identifierKey ? findCol(config.identifierKey) : null, periodLabel); // AVANT : sans await
+      return detectAnomaliesInColumn(rows, metric, config.identifierKey ? findCol(config.identifierKey) : null, periodLabel, thresholds); // synchrone désormais
     }
     case 'compare_snapshots': {
       return null;
     }
   }
 }
-  async function handleRunAnalysis() {
-    if (!dataset) return;
-    setRunning(true);
-    setResults(null);
 
-    try {
-      const periodLabel = dataset.period_label ?? dataset.name;
-      const computedResults: AnalysisResult[] = [];
+async function handleRunAnalysis() {
+  if (!dataset) return;
+  setRunning(true);
+  setResults(null);
 
-      for (const config of selectedConfigs) {
-        if (config.type === 'compare_snapshots') {
-          const previousRows = await listDatasetRows(config.previousDatasetId);
-          const metricCols = config.metricKeys.map((k) => columns.find((c) => c.key === k)).filter((c): c is DatasetColumnDef => !!c);
-          const previousDataset = otherDatasets.find((d) => d.$id === config.previousDatasetId);
-          computedResults.push(
-            compareDatasetSnapshots(
-              rows,
-              previousRows,
-              metricCols,
-              periodLabel,
-              previousDataset?.period_label ?? previousDataset?.name ?? 'Période précédente'
-            )
-          );
-        } else {
-  const result = await runConfig(config, periodLabel); // AVANT : sans await
-  if (result) computedResults.push(result);
-}
+  try {
+    const periodLabel = dataset.period_label ?? dataset.name;
+    const computedResults: AnalysisResult[] = [];
+
+    // Les seuils des 2 fonctions flexible.* concernées ne changent pas
+    // d'une itération à l'autre dans cette boucle — on les résout une
+    // seule fois chacun, avant la boucle, plutôt qu'à chaque config.
+    const crossCorrelateThresholds = await getThresholds('flexible.cross_correlate');
+    const anomaliesThresholds = await getThresholds('flexible.detect_anomalies');
+
+    for (const config of selectedConfigs) {
+      if (config.type === 'compare_snapshots') {
+        const previousRows = await listDatasetRows(config.previousDatasetId);
+        const metricCols = config.metricKeys.map((k) => columns.find((c) => c.key === k)).filter((c): c is DatasetColumnDef => !!c);
+        const previousDataset = otherDatasets.find((d) => d.$id === config.previousDatasetId);
+        computedResults.push(
+          compareDatasetSnapshots(
+            rows,
+            previousRows,
+            metricCols,
+            periodLabel,
+            previousDataset?.period_label ?? previousDataset?.name ?? 'Période précédente'
+          )
+        );
+      } else {
+        const relevantThresholds = config.type === 'cross_correlate_columns' ? crossCorrelateThresholds : anomaliesThresholds;
+        const result = runConfig(config, periodLabel, relevantThresholds);
+        if (result) computedResults.push(result);
       }
-
-      // APRÈS — les fonctions engine/flexible/ ne sont PAS encore migrées à ce
-// stade (ce sera un chantier séparé, elles n'utilisent pas encore
-// getThresholds), donc ce fichier n'a besoin d'aucun changement pour
-// l'instant. Je le note ici pour mémoire : quand on migrera
-// flexible.cross_correlate et flexible.detect_anomalies, runConfig()
-// devra devenir async et cet appel devra passer par un await/Promise.all,
-// exactement le même principe que pour StudioPage.
-
-      setResults(computedResults);
-
-      const tenant = await getTenantBySlug(dataset.tenant_id);
-      if (!tenant) throw new Error('Structure introuvable.');
-
-      const generatedText = await generateDatasetDirectives(tenant, dataset.name, periodLabel, computedResults);
-      setDirectives(generatedText);
-
-      await saveDraftDatasetReport({
-        dataset_id: dataset.$id,
-        tenant_id: dataset.tenant_id,
-        analysis_result: JSON.stringify(computedResults),
-        ai_directives: generatedText,
-      });
-
-      await updateDatasetStatus(dataset.$id, 'ANALYZED');
-    } catch (err) {
-      console.error(err);
-      alert("Erreur lors de l'analyse.");
-    } finally {
-      setRunning(false);
     }
+
+    setResults(computedResults);
+
+    const tenant = await getTenantBySlug(dataset.tenant_id);
+    if (!tenant) throw new Error('Structure introuvable.');
+
+    const generatedText = await generateDatasetDirectives(tenant, dataset.name, periodLabel, computedResults);
+    setDirectives(generatedText);
+
+    await saveDraftDatasetReport({
+      dataset_id: dataset.$id,
+      tenant_id: dataset.tenant_id,
+      analysis_result: JSON.stringify(computedResults),
+      ai_directives: generatedText,
+    });
+
+    await updateDatasetStatus(dataset.$id, 'ANALYZED');
+  } catch (err) {
+    console.error(err);
+    alert("Erreur lors de l'analyse.");
+  } finally {
+    setRunning(false);
   }
+}
 
   async function handlePublish() {
     if (!dataset || !results) return;

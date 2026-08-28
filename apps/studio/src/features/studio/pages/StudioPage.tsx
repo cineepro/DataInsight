@@ -16,6 +16,8 @@ import ResultReviewPanel from '../components/ResultReviewPanel';
 import Card from '../../../components/ui/Card';
 import Badge from '../../../components/ui/Badge';
 
+import { getThresholds } from '../../../engine/thresholds';
+
 const initialPeriod = getISOYearWeek();
 
 export default function StudioPage() {
@@ -79,47 +81,52 @@ export default function StudioPage() {
   }, [tenant, year, weekNumber]);
 
   async function handleRunAnalysis() {
-    if (!tenant || !category) return;
-    setRunning(true);
-    setResults(null);
+  if (!tenant || !category) return;
+  setRunning(true);
+  setResults(null);
 
-    try {
-      const scans = await fetchScansForCategory(category, tenant.slug, year, weekNumber);
-      const previousWeek = weekNumber > 1 ? weekNumber - 1 : 52;
-      const previousYear = weekNumber > 1 ? year : year - 1;
-      const previousPeriodScans = await fetchScansForCategory(category, tenant.slug, previousYear, previousWeek);
+  try {
+    const scans = await fetchScansForCategory(category, tenant.slug, year, weekNumber);
+    const previousWeek = weekNumber > 1 ? weekNumber - 1 : 52;
+    const previousYear = weekNumber > 1 ? year : year - 1;
+    const previousPeriodScans = await fetchScansForCategory(category, tenant.slug, previousYear, previousWeek);
 
-      const availableFunctions = getFunctionsForCategory(category);
-      const selectedFunctions = availableFunctions.filter((fn) => selectedFunctionIds.includes(fn.id));
+    const availableFunctions = getFunctionsForCategory(category);
+    const selectedFunctions = availableFunctions.filter((fn) => selectedFunctionIds.includes(fn.id));
 
-      const analysisResults: AnalysisResult[] = await Promise.all(
-  selectedFunctions.map((fn) =>
-    // @ts-expect-error — typage garanti au runtime par getFunctionsForCategory
-    fn.run(scans, { tenantId: tenant.slug, year, weekNumber, previousPeriodScans })
-  )
-);
-
-      setResults(analysisResults);
-
-      const period = formatWeekLabel(year, weekNumber);
-      const generatedText = await generateDirectives(tenant, period, analysisResults);
-      setDirectives(generatedText);
-
-      await saveDraftReport({
-        tenant_id: tenant.slug,
-        year,
-        week_number: weekNumber,
-        analysis_result: JSON.stringify(analysisResults),
-        ai_directives: generatedText,
-      });
-      setExistingReportStatus('DRAFT');
-    } catch (err) {
-      console.error(err);
-      alert("Erreur lors de l'analyse. Vérifiez la console.");
-    } finally {
-      setRunning(false);
+    // NOUVEAU : on résout les seuils AVANT d'appeler chaque fonction,
+    // puisque celles-ci sont désormais pures et synchrones — elles ne
+    // vont plus chercher elles-mêmes leurs seuils sur Appwrite.
+    const analysisResults: AnalysisResult[] = [];
+    for (const fn of selectedFunctions) {
+      const functionId = `${category === 'FASTFOOD' ? 'restaurant' : category.toLowerCase()}.${fn.id}`;
+      const thresholds = await getThresholds(functionId);
+      // @ts-expect-error — typage garanti au runtime par getFunctionsForCategory
+      const result = fn.run(scans, { tenantId: tenant.slug, year, weekNumber, previousPeriodScans }, thresholds);
+      analysisResults.push(result);
     }
+
+    setResults(analysisResults);
+
+    const period = formatWeekLabel(year, weekNumber);
+    const generatedText = await generateDirectives(tenant, period, analysisResults);
+    setDirectives(generatedText);
+
+    await saveDraftReport({
+      tenant_id: tenant.slug,
+      year,
+      week_number: weekNumber,
+      analysis_result: JSON.stringify(analysisResults),
+      ai_directives: generatedText,
+    });
+    setExistingReportStatus('DRAFT');
+  } catch (err) {
+    console.error(err);
+    alert("Erreur lors de l'analyse. Vérifiez la console.");
+  } finally {
+    setRunning(false);
   }
+}
 
   async function handlePublish() {
     if (!tenant || !results) return;

@@ -14,7 +14,14 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".",
+    "paths": {
+      "@datainsight/engine": ["../../packages/engine/src/index.ts"],
+      "@datainsight/engine/*": ["../../packages/engine/src/*"],
+      "@datainsight/shared": ["../../packages/shared/src/index.ts"],
+      "@datainsight/shared/*": ["../../packages/shared/src/*"]
+    }
   },
   "include": ["src"]
 }

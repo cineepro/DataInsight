@@ -190,8 +190,14 @@ export function getThresholdEntry(functionId: string): ThresholdFunctionEntry | 
   return THRESHOLD_REGISTRY.find((e) => e.function_id === functionId);
 }
 
+import { getDefaultThresholds } from '@datainsight/engine';
+
 export function defaultsFor(functionId: string): Record<string, number> {
   const entry = getThresholdEntry(functionId);
-  if (!entry) return {};
-  return Object.fromEntries(entry.fields.map((f) => [f.key, f.defaultValue]));
+  if (entry) {
+    return Object.fromEntries(entry.fields.map((f) => [f.key, f.defaultValue]));
+  }
+  // Filet de secours si une fonction n'a pas encore d'entrée dans le
+  // registre d'affichage du Studio mais existe déjà dans le package moteur.
+  return getDefaultThresholds(functionId);
 }
