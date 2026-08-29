@@ -30,6 +30,7 @@ export default function Footer() {
           <h3 className="mb-3 font-mono text-[11px] uppercase tracking-wider text-neutral-400">Ressources</h3>
           <div className="flex flex-col gap-2 text-sm text-neutral-600">
             <Link to="/documentation" className="hover:text-ink">Documentation</Link>
+            <Link to="/developpeurs" className="hover:text-ink">API pour développeurs</Link>
             <Link to="/actualites" className="hover:text-ink">Actualités</Link>
             <Link to="/a-propos" className="hover:text-ink">À propos</Link>
           </div>

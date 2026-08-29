@@ -8,6 +8,7 @@ const NAV_LINKS = [
   { to: '/', label: 'Accueil', end: true },
   { to: '/produit', label: 'DataInsight' },
   { to: '/secteurs', label: 'Secteurs' },
+  { to: '/developpeurs', label: 'API' },
   { to: '/documentation', label: 'Documentation' },
   { to: '/actualites', label: 'Actualités' },
   { to: '/tarifs', label: 'Tarifs' },
