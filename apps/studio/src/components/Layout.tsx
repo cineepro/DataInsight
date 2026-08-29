@@ -1,4 +1,4 @@
-// apps/studio/src/components/Layout.tsx
+//apps/studio/src/components/Layout.tsx
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { logout } from '../api/auth';
 import Logo from './Logo';
@@ -27,9 +27,9 @@ export default function Layout() {
   }
 
   return (
-    <div className="min-h-screen bg-fog md:flex">
-      {/* --- Sidebar desktop --- */}
-      <aside className="hidden w-56 shrink-0 flex-col border-r border-neutral-200 bg-white md:flex">
+    <div className="flex min-h-screen bg-fog">
+      {/* --- Sidebar desktop : fixe, ne défile jamais avec le contenu --- */}
+      <aside className="fixed inset-y-0 left-0 hidden w-56 flex-col overflow-y-auto border-r border-neutral-200 bg-white md:flex">
         <div className="flex items-center gap-2 px-5 py-5">
           <Logo className="text-marigold-500" />
           <span className="font-display text-base font-medium text-ink">ASILLIA</span>
@@ -60,8 +60,8 @@ export default function Layout() {
         </button>
       </aside>
 
-      {/* --- Header mobile --- */}
-      <header className="flex items-center justify-between border-b border-neutral-200 bg-white px-4 py-3 md:hidden">
+      {/* --- Header mobile (inchangé) --- */}
+      <header className="fixed inset-x-0 top-0 z-30 flex items-center justify-between border-b border-neutral-200 bg-white px-4 py-3 md:hidden">
         <div className="flex items-center gap-2">
           <Logo className="text-marigold-500" />
           <span className="font-display text-base font-medium text-ink">ASILLIA</span>
@@ -71,28 +71,11 @@ export default function Layout() {
         </button>
       </header>
 
-      {/* --- Contenu --- */}
-      <main className="flex-1 pb-20 md:pb-0">
+      {/* --- Contenu : décalé de la largeur de la sidebar sur desktop,
+          décalé vers le bas du header sur mobile, lui seul défile --- */}
+      <main className="flex-1 pt-14 md:ml-56 md:pt-0">
         <Outlet />
       </main>
-
-      {/* --- Barre basse mobile --- */}
-      <nav className="fixed inset-x-0 bottom-0 flex border-t border-neutral-200 bg-white md:hidden">
-        {NAV_LINKS.map((link) => (
-          <NavLink
-            key={link.to}
-            to={link.to}
-            end={link.end}
-            className={({ isActive }) =>
-              `flex-1 py-2.5 text-center text-[11px] transition ${
-                isActive ? 'font-medium text-ink' : 'text-neutral-400'
-              }`
-            }
-          >
-            {link.label}
-          </NavLink>
-        ))}
-      </nav>
     </div>
   );
 }
