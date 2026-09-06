@@ -23,3 +23,14 @@ export function getISOYearWeek(date: Date = new Date()): YearWeek {
     day_of_week: dayNum,
   };
 }
+
+/**
+ * Nombre de semaines ISO-8601 dans une année donnée : 52 la plupart du
+ * temps, mais 53 lorsque le 1er janvier tombe un jeudi (ou un mercredi
+ * une année bissextile). Utilisé pour naviguer correctement d'un bloc de
+ * 4 semaines à l'autre au changement d'année, sans décalage.
+ */
+export function isoWeeksInYear(year: number): number {
+  const p = (y: number) => (y + Math.floor(y / 4) - Math.floor(y / 100) + Math.floor(y / 400)) % 7;
+  return p(year) === 4 || p(year - 1) === 3 ? 53 : 52;
+}

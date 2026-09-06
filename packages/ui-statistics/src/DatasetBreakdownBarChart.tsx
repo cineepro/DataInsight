@@ -1,4 +1,4 @@
-//apps/client-dashboard/src/features/statistics/components/DatasetBreakdownBarChart.tsx
+//packages/ui-statistics/src/DatasetBreakdownBarChart.tsx
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import type { DatasetBreakdownEntry } from '@datainsight/shared';
 

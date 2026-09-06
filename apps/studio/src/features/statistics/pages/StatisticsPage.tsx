@@ -1,12 +1,11 @@
 //apps/studio/src/features/statistics/pages/StatisticsPage.tsx
 import { useEffect, useState } from 'react';
 import type { Tenant, TenantCategory, TenantStatistics } from '@datainsight/shared';
-import { getISOYearWeek } from '@datainsight/shared';
+import { getISOYearWeek, isoWeeksInYear } from '@datainsight/shared';
 import { listTenants } from '../../../api/tenants';
 import { getTenantStatistics } from '../../../api/statistics';
 import Select from '../../../components/ui/Select';
-import BlockSelector from '../components/BlockSelector';
-import StatisticsGrid from '../components/StatisticsGrid';
+import { BlockSelector, StatisticsGrid } from '@datainsight/ui-statistics';
 
 const CATEGORY_OPTIONS = [
   { label: 'Restauration', value: 'RESTAURANT' },
@@ -15,16 +14,14 @@ const CATEGORY_OPTIONS = [
   { label: 'Entreprise', value: 'ENTREPRISE' },
 ];
 
-const WEEKS_PER_YEAR = 52;
-
 function shiftBlock(year: number, week: number, direction: 1 | -1): { year: number; week: number } {
   let newWeek = week + direction * 4;
   let newYear = year;
   if (newWeek < 1) {
-    newWeek += WEEKS_PER_YEAR;
     newYear -= 1;
-  } else if (newWeek > WEEKS_PER_YEAR) {
-    newWeek -= WEEKS_PER_YEAR;
+    newWeek += isoWeeksInYear(newYear);
+  } else if (newWeek > isoWeeksInYear(year)) {
+    newWeek -= isoWeeksInYear(year);
     newYear += 1;
   }
   return { year: newYear, week: newWeek };

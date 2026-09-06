@@ -1,4 +1,4 @@
-//apps/client-dashboard/src/features/statistics/components/PerformanceDonutChart.tsx
+//packages/ui-statistics/src/PerformanceDonutChart.tsx
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import type { PerformanceBreakdown } from '@datainsight/shared';
 

@@ -1,4 +1,4 @@
-//apps/studio/src/features/statistics/components/DistributionPieChart.tsx
+//packages/ui-statistics/src/DistributionPieChart.tsx
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 interface DistributionPieChartProps {

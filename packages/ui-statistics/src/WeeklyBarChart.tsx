@@ -1,4 +1,4 @@
-//apps/studio/src/features/statistics/components/WeeklyBarChart.tsx
+//packages/ui-statistics/src/WeeklyBarChart.tsx
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 interface WeeklyBarChartProps {

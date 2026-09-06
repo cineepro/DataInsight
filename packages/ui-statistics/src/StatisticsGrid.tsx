@@ -1,4 +1,4 @@
-//apps/client-dashboard/src/features/statistics/components/StatisticsGrid.tsx
+//packages/ui-statistics/src/StatisticsGrid.tsx
 import type { TenantStatistics, TenantCategory } from '@datainsight/shared';
 import PerformanceDonutChart from './PerformanceDonutChart';
 import WeeklyBarChart from './WeeklyBarChart';

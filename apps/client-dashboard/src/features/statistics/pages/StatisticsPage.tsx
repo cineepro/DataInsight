@@ -1,25 +1,22 @@
 //apps/client-dashboard/src/features/statistics/pages/StatisticsPage.tsx
 import { useEffect, useState } from 'react';
 import type { TenantStatistics, TenantCategory } from '@datainsight/shared';
-import { getISOYearWeek } from '@datainsight/shared';
+import { getISOYearWeek, isoWeeksInYear } from '@datainsight/shared';
 import { getCurrentSession } from '../../../api/auth';
 import { getTenantStatistics } from '../../../api/statistics';
-import BlockSelector from '../components/BlockSelector';
-import StatisticsGrid from '../components/StatisticsGrid';
+import { BlockSelector, StatisticsGrid } from '@datainsight/ui-statistics';
 import Logo from '../../../components/Logo';
 import Button from '../../../components/ui/Button';
 import PageNav from '../../../components/ui/PageNav';
-
-const WEEKS_PER_YEAR = 52;
 
 function shiftBlock(year: number, week: number, direction: 1 | -1): { year: number; week: number } {
   let newWeek = week + direction * 4;
   let newYear = year;
   if (newWeek < 1) {
-    newWeek += WEEKS_PER_YEAR;
     newYear -= 1;
-  } else if (newWeek > WEEKS_PER_YEAR) {
-    newWeek -= WEEKS_PER_YEAR;
+    newWeek += isoWeeksInYear(newYear);
+  } else if (newWeek > isoWeeksInYear(year)) {
+    newWeek -= isoWeeksInYear(year);
     newYear += 1;
   }
   return { year: newYear, week: newWeek };

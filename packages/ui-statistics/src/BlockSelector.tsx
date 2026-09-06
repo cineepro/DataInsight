@@ -1,4 +1,4 @@
-//apps/studio/src/features/statistics/components/BlockSelector.tsx
+//packages/ui-statistics/src/BlockSelector.tsx
 interface BlockSelectorProps {
   blockLabel: string;
   onPrevious: () => void;

@@ -9,7 +9,16 @@ interface RequestPayload {
 
 type ScanCategory = 'RESTAURANT' | 'FASTFOOD' | 'PHARMACIE' | 'ENTREPRISE';
 
-const WEEKS_PER_YEAR = 52;
+/**
+ * Nombre de semaines ISO dans une année : 52 la plupart du temps, 53
+ * certaines années (même formule que packages/shared/src/utils/weekNumber.ts —
+ * dupliquée ici volontairement plutôt que d'ajouter une dépendance au
+ * package partagé et le bundling qui irait avec, pour 3 lignes de calcul).
+ */
+function isoWeeksInYear(year: number): number {
+  const p = (y: number) => (y + Math.floor(y / 4) - Math.floor(y / 100) + Math.floor(y / 400)) % 7;
+  return p(year) === 4 || p(year - 1) === 3 ? 53 : 52;
+}
 
 function computeBlockWeeks(startYear: number, startWeek: number): Array<{ year: number; week: number }> {
   const weeks: Array<{ year: number; week: number }> = [];
@@ -18,7 +27,7 @@ function computeBlockWeeks(startYear: number, startWeek: number): Array<{ year: 
   for (let i = 0; i < 4; i++) {
     weeks.push({ year, week });
     week++;
-    if (week > WEEKS_PER_YEAR) {
+    if (week > isoWeeksInYear(year)) {
       week = 1;
       year++;
     }
