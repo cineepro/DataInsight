@@ -47,6 +47,10 @@ export default function DatasetFunctionPicker({ columns, otherDatasets, onChange
       const c = configMap.aggregate_by_dimension as any;
       if (c.dimensionKey) result.push({ type: 'aggregate_by_dimension', dimensionKey: c.dimensionKey, metricKey: c.metricKey, aggregation: c.aggregation ?? 'SUM' });
     }
+    if (enabledMap.aggregate_by_dimensions && configMap.aggregate_by_dimensions) {
+      const c = configMap.aggregate_by_dimensions as any;
+      if (c.dimensionKeys?.length >= 2) result.push({ type: 'aggregate_by_dimensions', dimensionKeys: c.dimensionKeys, metricKey: c.metricKey, aggregation: c.aggregation ?? 'SUM' });
+    }
     if (enabledMap.top_n_by_dimension && configMap.top_n_by_dimension) {
       const c = configMap.top_n_by_dimension as any;
       if (c.dimensionKey) result.push({ type: 'top_n_by_dimension', dimensionKey: c.dimensionKey, metricKey: c.metricKey, n: c.n ?? 5 });
@@ -113,6 +117,62 @@ export default function DatasetFunctionPicker({ columns, otherDatasets, onChange
                   { label: 'Compte', value: 'COUNT' },
                 ]}
               />
+            </div>
+          )}
+        </div>
+      )}
+
+      {available.some((fn) => fn.id === 'aggregate_by_dimensions') && (
+        <div className="border border-neutral-200 p-3">
+          <Checkbox
+            label="Agréger par plusieurs dimensions"
+            description="Croise 2 dimensions ou plus (ex: catégorie × mode de paiement)."
+            checked={!!enabled.aggregate_by_dimensions}
+            onChange={(c) => toggle('aggregate_by_dimensions', c)}
+          />
+          {enabled.aggregate_by_dimensions && (
+            <div className="mt-3 flex flex-col gap-3 pl-7">
+              <div>
+                <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-neutral-500">
+                  Dimensions à croiser (2 minimum)
+                </span>
+                <div className="flex flex-col gap-1.5">
+                  {dimensionColumns.map((dc) => {
+                    const current: string[] = (configs.aggregate_by_dimensions as any)?.dimensionKeys ?? [];
+                    const isChecked = current.includes(dc.key);
+                    return (
+                      <Checkbox
+                        key={dc.key}
+                        label={dc.name}
+                        checked={isChecked}
+                        onChange={(checked) => {
+                          const next = checked ? [...current, dc.key] : current.filter((k) => k !== dc.key);
+                          updateConfig('aggregate_by_dimensions', { dimensionKeys: next } as any);
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Select
+                  label="Mesure (optionnel)"
+                  value={(configs.aggregate_by_dimensions as any)?.metricKey ?? ''}
+                  onChange={(v) => updateConfig('aggregate_by_dimensions', { metricKey: v } as any)}
+                  options={metricColumns.map((c) => ({ label: c.name, value: c.key }))}
+                  placeholder="Aucune (compte)"
+                />
+                <Select
+                  label="Calcul"
+                  value={(configs.aggregate_by_dimensions as any)?.aggregation ?? 'SUM'}
+                  onChange={(v) => updateConfig('aggregate_by_dimensions', { aggregation: v } as any)}
+                  options={[
+                    { label: 'Somme', value: 'SUM' },
+                    { label: 'Moyenne', value: 'AVERAGE' },
+                    { label: 'Compte', value: 'COUNT' },
+                  ]}
+                />
+              </div>
             </div>
           )}
         </div>

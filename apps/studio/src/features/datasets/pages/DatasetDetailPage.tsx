@@ -22,6 +22,7 @@ import { inferColumnType, slugifyColumnKey } from '../utils/inferColumnType';
 import type { DatasetColumnDef, DatasetRow, AnalysisResult } from '../../../engine/flexible/types';
 import type { FlexibleFunctionConfig } from '../utils/functionConfigTypes';
 import { aggregateByDimension } from '../../../engine/flexible/aggregateByDimension';
+import { aggregateByDimensions } from '../../../engine/flexible/aggregateByDimensions';
 import { topNByDimension } from '../../../engine/flexible/topNByDimension';
 import { crossCorrelateColumns } from '../../../engine/flexible/crossCorrelateColumns';
 import { detectAnomaliesInColumn } from '../../../engine/flexible/detectAnomaliesInColumn';
@@ -162,6 +163,11 @@ export default function DatasetDetailPage() {
       const dim = findCol(config.dimensionKey);
       if (!dim) return null;
       return aggregateByDimension(rows, dim, config.metricKey ? findCol(config.metricKey) : null, config.aggregation, periodLabel);
+    }
+    case 'aggregate_by_dimensions': {
+      const dims = config.dimensionKeys.map(findCol).filter((c): c is DatasetColumnDef => !!c);
+      if (dims.length < 2) return null;
+      return aggregateByDimensions(rows, dims, config.metricKey ? findCol(config.metricKey) : null, config.aggregation, periodLabel);
     }
     case 'top_n_by_dimension': {
       const dim = findCol(config.dimensionKey);

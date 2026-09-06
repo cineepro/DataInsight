@@ -3,6 +3,7 @@ import type { DatasetColumnDef, ColumnRole } from './types';
 
 export type FlexibleFunctionId =
   | 'aggregate_by_dimension'
+  | 'aggregate_by_dimensions'
   | 'top_n_by_dimension'
   | 'cross_correlate_columns'
   | 'detect_anomalies'
@@ -23,6 +24,13 @@ export const FLEXIBLE_FUNCTIONS: FlexibleFunctionDescriptor[] = [
     description: "Somme, moyenne ou compte d'une mesure, groupée par une dimension (ex: ventes par ville).",
     requiredRoles: ['DIMENSION'],
     minColumnsNeeded: 1,
+  },
+  {
+    id: 'aggregate_by_dimensions',
+    label: 'Agréger par plusieurs dimensions',
+    description: "Comme ci-dessus, mais en croisant 2 dimensions ou plus (ex: catégorie de formation × mode de paiement).",
+    requiredRoles: ['DIMENSION'],
+    minColumnsNeeded: 2,
   },
   {
     id: 'top_n_by_dimension',

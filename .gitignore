@@ -3,3 +3,6 @@ node_modules
 dist
 .env
 .env.local
+
+# Paquets de déploiement manuel générés localement (voir scripts/package-function.sh)
+.deploy

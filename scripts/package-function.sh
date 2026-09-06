@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# scripts/package-function.sh
+#
+# Construit un paquet de déploiement MANUEL autonome pour une fonction
+# Appwrite qui dépend de @datainsight/engine ou @datainsight/shared.
+#
+# À utiliser uniquement pour les fonctions concernées (aujourd'hui :
+# api-run-analysis, api-join-datasets). Les autres fonctions n'ont pas
+# besoin de ça — leur déploiement Git automatique fonctionne normalement.
+#
+# Usage :
+#   scripts/package-function.sh api-join-datasets
+#
+# Produit : .deploy/<nom-de-la-fonction>.tar.gz
+# -> à uploader sur la Console Appwrite via "Create deployment" -> "Manual"
+
+set -euo pipefail
+
+FN="${1:-}"
+if [ -z "$FN" ]; then
+  echo "Usage: scripts/package-function.sh <nom-de-la-fonction>"
+  exit 1
+fi
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+FN_DIR="$ROOT_DIR/appwrite/functions/$FN"
+OUT_DIR="$ROOT_DIR/.deploy"
+PKG_DIR="$OUT_DIR/$FN"
+
+if [ ! -d "$FN_DIR" ]; then
+  echo "❌ Fonction introuvable : $FN_DIR"
+  exit 1
+fi
+
+echo "→ Build de $FN..."
+(cd "$ROOT_DIR" && npm run build --workspace="appwrite/functions/$FN")
+
+if [ ! -f "$FN_DIR/dist/main.js" ]; then
+  echo "❌ Le build n'a pas produit dist/main.js — vérifie les erreurs ci-dessus."
+  exit 1
+fi
+
+echo "→ Assemblage du paquet autonome..."
+rm -rf "$PKG_DIR"
+mkdir -p "$PKG_DIR/dist"
+cp "$FN_DIR/dist/main.js" "$PKG_DIR/dist/main.js"
+
+cat > "$PKG_DIR/package.json" << EOF
+{
+  "name": "$FN",
+  "version": "1.0.0",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "echo 'Déjà construit en local — rien à faire ici.'"
+  },
+  "dependencies": {
+    "node-appwrite": "^14.0.0"
+  }
+}
+EOF
+
+(cd "$PKG_DIR" && tar -czf "$OUT_DIR/$FN.tar.gz" .)
+
+echo ""
+echo "✅ Paquet prêt : .deploy/$FN.tar.gz"
+echo "   Sur la Console Appwrite : Create deployment → Manual → uploader ce fichier."
