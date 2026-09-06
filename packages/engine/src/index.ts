@@ -61,6 +61,7 @@ export { topNByDimension } from './flexible/topNByDimension';
 //export { detectAnomaliesInColumn } from './flexible/detectAnomaliesInColumn';
 export { compareDatasetSnapshots } from './flexible/compareDatasetSnapshots';
 export * from './flexible/registry';
+export * from './flexible/joinDatasets';
 
 export {
   crossCorrelateColumns,
