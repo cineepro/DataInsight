@@ -8,6 +8,7 @@ export type FlexibleFunctionId =
   | 'cross_correlate_columns'
   | 'detect_anomalies'
   | 'analyze_trend_by_period'
+  | 'pivot_table'
   | 'compare_snapshots';
 
 export interface FlexibleFunctionDescriptor {
@@ -59,6 +60,13 @@ export const FLEXIBLE_FUNCTIONS: FlexibleFunctionDescriptor[] = [
     label: 'Évolution & point de rupture',
     description: "Suit une mesure période par période (ex: semaine) et détecte automatiquement la plus forte chute — utile pour repérer un décrochage.",
     requiredRoles: ['DATE'],
+    minColumnsNeeded: 1,
+  },
+  {
+    id: 'pivot_table',
+    label: 'Tableau croisé dynamique',
+    description: "Croise librement une ou plusieurs dimensions en lignes avec une dimension en colonnes — le mécanisme le plus flexible du lot.",
+    requiredRoles: ['DIMENSION'],
     minColumnsNeeded: 1,
   },
   {

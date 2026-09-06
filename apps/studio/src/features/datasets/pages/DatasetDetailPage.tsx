@@ -27,6 +27,7 @@ import { topNByDimension } from '../../../engine/flexible/topNByDimension';
 import { crossCorrelateColumns } from '../../../engine/flexible/crossCorrelateColumns';
 import { detectAnomaliesInColumn } from '../../../engine/flexible/detectAnomaliesInColumn';
 import { analyzeTrendByPeriod } from '../../../engine/flexible/analyzeTrendByPeriod';
+import { pivotTable } from '../../../engine/flexible/pivotTable';
 import { compareDatasetSnapshots } from '../../../engine/flexible/compareDatasetSnapshots';
 
 import DatasetPreviewTable from '../components/DatasetPreviewTable';
@@ -198,6 +199,11 @@ export default function DatasetDetailPage() {
         periodLabel,
         thresholds
       );
+    }
+    case 'pivot_table': {
+      const rowDims = config.rowKeys.map(findCol).filter((c): c is DatasetColumnDef => !!c);
+      if (rowDims.length === 0) return null;
+      return pivotTable(rows, rowDims, config.columnKey ? findCol(config.columnKey) : null, config.metricKey ? findCol(config.metricKey) : null, config.aggregation, periodLabel);
     }
     case 'compare_snapshots': {
       return null;

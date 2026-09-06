@@ -68,6 +68,10 @@ export default function DatasetFunctionPicker({ columns, otherDatasets, onChange
       const c = configMap.analyze_trend_by_period as any;
       if (c.periodKey) result.push({ type: 'analyze_trend_by_period', periodKey: c.periodKey, groupKey: c.groupKey, metricKey: c.metricKey, aggregation: c.aggregation ?? 'AVERAGE' });
     }
+    if (enabledMap.pivot_table && configMap.pivot_table) {
+      const c = configMap.pivot_table as any;
+      if (c.rowKeys?.length >= 1) result.push({ type: 'pivot_table', rowKeys: c.rowKeys, columnKey: c.columnKey, metricKey: c.metricKey, aggregation: c.aggregation ?? 'SUM' });
+    }
     if (enabledMap.compare_snapshots && configMap.compare_snapshots) {
       const c = configMap.compare_snapshots as any;
       if (c.previousDatasetId) result.push({ type: 'compare_snapshots', previousDatasetId: c.previousDatasetId, metricKeys: metricColumns.map((m) => m.key) });
@@ -317,6 +321,69 @@ export default function DatasetFunctionPicker({ columns, otherDatasets, onChange
                   { label: 'Compte', value: 'COUNT' },
                 ]}
               />
+            </div>
+          )}
+        </div>
+      )}
+
+      {available.some((fn) => fn.id === 'pivot_table') && (
+        <div className="border border-neutral-200 p-3">
+          <Checkbox
+            label="Tableau croisé dynamique"
+            description="Croise librement une ou plusieurs dimensions en lignes avec une dimension en colonnes."
+            checked={!!enabled.pivot_table}
+            onChange={(c) => toggle('pivot_table', c)}
+          />
+          {enabled.pivot_table && (
+            <div className="mt-3 flex flex-col gap-3 pl-7">
+              <div>
+                <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-neutral-500">
+                  Lignes (1 ou plusieurs)
+                </span>
+                <div className="flex flex-col gap-1.5">
+                  {dimensionColumns.map((dc) => {
+                    const current: string[] = (configs.pivot_table as any)?.rowKeys ?? [];
+                    const isChecked = current.includes(dc.key);
+                    return (
+                      <Checkbox
+                        key={dc.key}
+                        label={dc.name}
+                        checked={isChecked}
+                        onChange={(checked) => {
+                          const next = checked ? [...current, dc.key] : current.filter((k) => k !== dc.key);
+                          updateConfig('pivot_table', { rowKeys: next } as any);
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <Select
+                  label="Colonnes (optionnel)"
+                  value={(configs.pivot_table as any)?.columnKey ?? ''}
+                  onChange={(v) => updateConfig('pivot_table', { columnKey: v } as any)}
+                  options={dimensionColumns.map((c) => ({ label: c.name, value: c.key }))}
+                  placeholder="Une seule colonne"
+                />
+                <Select
+                  label="Mesure (optionnel)"
+                  value={(configs.pivot_table as any)?.metricKey ?? ''}
+                  onChange={(v) => updateConfig('pivot_table', { metricKey: v } as any)}
+                  options={metricColumns.map((c) => ({ label: c.name, value: c.key }))}
+                  placeholder="Aucune (compte)"
+                />
+                <Select
+                  label="Calcul"
+                  value={(configs.pivot_table as any)?.aggregation ?? 'SUM'}
+                  onChange={(v) => updateConfig('pivot_table', { aggregation: v } as any)}
+                  options={[
+                    { label: 'Somme', value: 'SUM' },
+                    { label: 'Moyenne', value: 'AVERAGE' },
+                    { label: 'Compte', value: 'COUNT' },
+                  ]}
+                />
+              </div>
             </div>
           )}
         </div>

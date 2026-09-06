@@ -58,6 +58,7 @@ export * from './flexible/types';
 export { aggregateByDimension } from './flexible/aggregateByDimension';
 export { aggregateByDimensions, type MultiDimensionGroup } from './flexible/aggregateByDimensions';
 export { analyzeTrendByPeriod, type PeriodSeries, type PeriodSeriesPoint } from './flexible/analyzeTrendByPeriod';
+export { pivotTable, type PivotTableResult } from './flexible/pivotTable';
 export { topNByDimension } from './flexible/topNByDimension';
 //export { crossCorrelateColumns } from './flexible/crossCorrelateColumns';
 //export { detectAnomaliesInColumn } from './flexible/detectAnomaliesInColumn';

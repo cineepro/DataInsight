@@ -11,6 +11,7 @@ import {
   crossCorrelateColumns,
   detectAnomaliesInColumn,
   analyzeTrendByPeriod,
+  pivotTable,
   getDefaultThresholds,
   type JoinType,
   type AggregationType,
@@ -42,7 +43,8 @@ interface RequestAnalysis {
     | 'top_n_by_dimension'
     | 'cross_correlate_columns'
     | 'detect_anomalies'
-    | 'analyze_trend_by_period';
+    | 'analyze_trend_by_period'
+    | 'pivot_table';
   dimensionColumn?: string;
   dimensionColumns?: string[];
   metricColumn?: string;
@@ -54,6 +56,9 @@ interface RequestAnalysis {
   aggregation?: AggregationType;
   n?: number;
   thresholds?: Record<string, number>;
+  // spécifique à pivot_table :
+  rowColumns?: string[];
+  pivotColumn?: string;
 }
 
 interface RequestPayload {
@@ -73,6 +78,7 @@ const ANALYSIS_FUNCTION_ID: Record<RequestAnalysis['type'], string> = {
   cross_correlate_columns: 'flexible.cross_correlate',
   detect_anomalies: 'flexible.detect_anomalies',
   analyze_trend_by_period: 'flexible.analyze_trend_by_period',
+  pivot_table: 'flexible.pivot_table',
 };
 
 function findColumnByName(columns: DatasetColumnDef[], name: string): DatasetColumnDef | undefined {
@@ -108,6 +114,10 @@ function validateAnalysis(a: RequestAnalysis, columns: DatasetColumnDef[]): stri
       if (!a.periodColumn) return 'analyze_trend_by_period requiert "periodColumn".';
       if (missingCol(a.periodColumn) || missingCol(a.groupColumn) || missingCol(a.metricColumn)) return `Colonne introuvable pour analyze_trend_by_period.`;
       return null;
+    case 'pivot_table':
+      if (!a.rowColumns || a.rowColumns.length === 0) return 'pivot_table requiert "rowColumns" (1 minimum).';
+      if (a.rowColumns.some((c) => missingCol(c)) || missingCol(a.pivotColumn) || missingCol(a.metricColumn)) return `Colonne introuvable pour pivot_table.`;
+      return null;
     default:
       return `Type d'analyse inconnu: ${(a as any).type}`;
   }
@@ -131,6 +141,8 @@ function runAnalysis(a: RequestAnalysis, columns: DatasetColumnDef[], rows: any[
       return detectAnomaliesInColumn(rows, col(a.metricColumn)!, col(a.identifierColumn), periodLabel, thresholds);
     case 'analyze_trend_by_period':
       return analyzeTrendByPeriod(rows, col(a.periodColumn)!, col(a.groupColumn), col(a.metricColumn), a.aggregation ?? 'AVERAGE', periodLabel, thresholds);
+    case 'pivot_table':
+      return pivotTable(rows, a.rowColumns!.map((c) => col(c)!), col(a.pivotColumn), col(a.metricColumn), a.aggregation ?? 'SUM', periodLabel);
   }
 }
 

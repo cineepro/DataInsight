@@ -8,4 +8,5 @@ export type FlexibleFunctionConfig =
   | { type: 'cross_correlate_columns'; columnAKey: string; columnBKey: string }
   | { type: 'detect_anomalies'; metricKey: string; identifierKey?: string }
   | { type: 'analyze_trend_by_period'; periodKey: string; groupKey?: string; metricKey?: string; aggregation: AggregationType }
+  | { type: 'pivot_table'; rowKeys: string[]; columnKey?: string; metricKey?: string; aggregation: AggregationType }
   | { type: 'compare_snapshots'; previousDatasetId: string; metricKeys: string[] };
