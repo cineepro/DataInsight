@@ -1,0 +1,370 @@
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=package-lock.json' repo_after_step1b/appwrite/functions/api-join-datasets/appwrite.json repo/appwrite/functions/api-join-datasets/appwrite.json
+--- repo_after_step1b/appwrite/functions/api-join-datasets/appwrite.json	1970-01-01 00:00:00.000000000 +0000
++++ repo/appwrite/functions/api-join-datasets/appwrite.json	2026-09-06 19:04:04.151825002 +0000
+@@ -0,0 +1,14 @@
++{
++  "functionId": "api-join-datasets",
++  "name": "api-join-datasets",
++  "runtime": "node-18.0",
++  "execute": ["any"],
++  "events": [],
++  "schedule": "",
++  "timeout": 30,
++  "enabled": true,
++  "logging": true,
++  "entrypoint": "dist/main.js",
++  "commands": "npm install && npm run build",
++  "path": "functions/api-join-datasets"
++}
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=package-lock.json' repo_after_step1b/appwrite/functions/api-join-datasets/package.json repo/appwrite/functions/api-join-datasets/package.json
+--- repo_after_step1b/appwrite/functions/api-join-datasets/package.json	1970-01-01 00:00:00.000000000 +0000
++++ repo/appwrite/functions/api-join-datasets/package.json	2026-09-06 19:04:04.152660239 +0000
+@@ -0,0 +1,19 @@
++{
++  "name": "api-join-datasets",
++  "version": "1.0.0",
++  "type": "commonjs",
++  "main": "dist/main.js",
++  "scripts": {
++    "build": "esbuild src/main.ts --bundle --platform=node --target=node18 --format=cjs --external:node-appwrite --outfile=dist/main.js"
++  },
++  "dependencies": {
++    "node-appwrite": "^14.0.0",
++    "@datainsight/engine": "*",
++    "@datainsight/shared": "*"
++  },
++  "devDependencies": {
++    "typescript": "^5.5.4",
++    "@types/node": "^20.14.0",
++    "esbuild": "^0.23.0"
++  }
++}
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=package-lock.json' repo_after_step1b/appwrite/functions/api-join-datasets/src/apiAuth.ts repo/appwrite/functions/api-join-datasets/src/apiAuth.ts
+--- repo_after_step1b/appwrite/functions/api-join-datasets/src/apiAuth.ts	1970-01-01 00:00:00.000000000 +0000
++++ repo/appwrite/functions/api-join-datasets/src/apiAuth.ts	2026-09-06 19:04:04.149097655 +0000
+@@ -0,0 +1,80 @@
++//appwrite/functions/api-run-analysis/src/apiAuth.ts
++import { createHash } from 'crypto';
++import { Databases, Query } from 'node-appwrite';
++import type { ApiKey, ApiProductScope } from '@datainsight/shared';
++
++export type AuthResult =
++  | { ok: true; apiKey: ApiKey }
++  | { ok: false; status: number; error: string };
++
++function sha256Hex(input: string): string {
++  return createHash('sha256').update(input).digest('hex');
++}
++
++/**
++ * Vérifie une clé API reçue dans l'en-tête x-api-key : hash, recherche,
++ * statut, scope produit, et quota mensuel. Incrémente requests_used si
++ * tout est bon — c'est donc cette fonction qui "consomme" une unité de
++ * quota, à appeler une seule fois par requête entrante.
++ */
++export async function verifyApiKey(
++  databases: Databases,
++  databaseId: string,
++  apiKeysCollectionId: string,
++  rawKey: string | undefined,
++  requiredScope: ApiProductScope
++): Promise<AuthResult> {
++  if (!rawKey) {
++    return { ok: false, status: 401, error: 'Clé API manquante (en-tête x-api-key requis).' };
++  }
++
++  const keyHash = sha256Hex(rawKey);
++
++  const result = await databases.listDocuments(databaseId, apiKeysCollectionId, [
++    Query.equal('key_hash', keyHash),
++    Query.limit(1),
++  ]);
++
++  const apiKey = result.documents[0] as unknown as ApiKey | undefined;
++
++  if (!apiKey) {
++    return { ok: false, status: 401, error: 'Clé API invalide.' };
++  }
++
++  if (apiKey.status !== 'ACTIVE') {
++    return { ok: false, status: 403, error: `Clé API ${apiKey.status.toLowerCase()}.` };
++  }
++
++  if (apiKey.product_scope !== 'BOTH' && apiKey.product_scope !== requiredScope) {
++    return { ok: false, status: 403, error: "Cette clé n'a pas accès à ce produit." };
++  }
++
++  if (apiKey.requests_used >= apiKey.monthly_quota) {
++    return { ok: false, status: 429, error: 'Quota mensuel atteint.' };
++  }
++
++  await databases.updateDocument(databaseId, apiKeysCollectionId, apiKey.$id, {
++    requests_used: apiKey.requests_used + 1,
++  });
++
++  return { ok: true, apiKey };
++}
++
++export async function logApiUsage(
++  databases: Databases,
++  databaseId: string,
++  usageLogsCollectionId: string,
++  keyId: string,
++  product: ApiProductScope,
++  endpoint: string,
++  statusCode: number
++): Promise<void> {
++  const { ID } = await import('node-appwrite');
++  await databases.createDocument(databaseId, usageLogsCollectionId, ID.unique(), {
++    key_id: keyId,
++    product,
++    endpoint,
++    status_code: statusCode,
++    created_at: new Date().toISOString(),
++  });
++}
+\ No newline at end of file
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=package-lock.json' repo_after_step1b/appwrite/functions/api-join-datasets/src/main.ts repo/appwrite/functions/api-join-datasets/src/main.ts
+--- repo_after_step1b/appwrite/functions/api-join-datasets/src/main.ts	1970-01-01 00:00:00.000000000 +0000
++++ repo/appwrite/functions/api-join-datasets/src/main.ts	2026-09-06 19:04:22.973098774 +0000
+@@ -0,0 +1,112 @@
++//appwrite/functions/api-join-datasets/src/main.ts
++import { Client, Databases } from 'node-appwrite';
++import { verifyApiKey, logApiUsage } from './apiAuth';
++import { joinManyDatasets, datasetFromPlainRows, joinResultToPlainRows, type JoinType } from '@datainsight/engine';
++
++interface RequestDataset {
++  label: string;
++  rows: Record<string, unknown>[];
++}
++
++interface RequestStep {
++  datasetIndex: number; // index dans `datasets`, le dataset ajouté à cette étape
++  keyColumn: string; // colonne de ce dataset utilisée comme clé
++  previousKeyColumn: string; // colonne du résultat accumulé jusqu'ici sur laquelle joindre
++  joinType?: JoinType; // défaut : INNER
++}
++
++interface RequestPayload {
++  datasets: RequestDataset[];
++  steps: RequestStep[];
++}
++
++const MAX_DATASETS = 6;
++const MAX_ROWS_PER_DATASET = 20000;
++
++export default async ({ req, res, log, error }: any) => {
++  try {
++    let body: RequestPayload;
++    try {
++      body = JSON.parse(req.bodyText || '{}');
++    } catch {
++      return res.json({ error: 'Corps de requête invalide.' }, 400);
++    }
++
++    if (!Array.isArray(body.datasets) || body.datasets.length < 2) {
++      return res.json({ error: 'Au moins 2 datasets sont requis (champ "datasets").' }, 400);
++    }
++    if (body.datasets.length > MAX_DATASETS) {
++      return res.json({ error: `Maximum ${MAX_DATASETS} datasets par appel.` }, 400);
++    }
++    if (!Array.isArray(body.steps) || body.steps.length !== body.datasets.length - 1) {
++      return res.json({ error: 'Le champ "steps" doit contenir exactement (nombre de datasets - 1) étapes.' }, 400);
++    }
++    for (const d of body.datasets) {
++      if (!d.label || !Array.isArray(d.rows)) {
++        return res.json({ error: 'Chaque dataset doit avoir un "label" et un tableau "rows".' }, 400);
++      }
++      if (d.rows.length > MAX_ROWS_PER_DATASET) {
++        return res.json({ error: `Maximum ${MAX_ROWS_PER_DATASET} lignes par dataset.` }, 400);
++      }
++    }
++    for (const s of body.steps) {
++      if (
++        typeof s.datasetIndex !== 'number' ||
++        s.datasetIndex < 1 ||
++        s.datasetIndex >= body.datasets.length ||
++        !s.keyColumn ||
++        !s.previousKeyColumn
++      ) {
++        return res.json({ error: 'Chaque étape doit référencer un datasetIndex valide (>=1), keyColumn et previousKeyColumn.' }, 400);
++      }
++    }
++
++    const client = new Client()
++      .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT!)
++      .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID!)
++      .setKey(process.env.APPWRITE_API_KEY!);
++
++    const databases = new Databases(client);
++    const databaseId = process.env.APPWRITE_DATABASE_ID!;
++
++    const rawKey = req.headers?.['x-api-key'];
++    const auth = await verifyApiKey(databases, databaseId, process.env.APPWRITE_COLLECTION_API_KEYS!, rawKey, 'ANALYSIS_ENGINE_API');
++
++    if (!auth.ok) {
++      return res.json({ error: auth.error }, auth.status);
++    }
++
++    log(`Jointure de ${body.datasets.length} datasets demandée par ${auth.apiKey.owner_name}.`);
++
++    let result;
++    try {
++      const base = datasetFromPlainRows(body.datasets[0].label, body.datasets[0].rows);
++      const resolvedSteps = body.steps.map((s) => ({
++        dataset: datasetFromPlainRows(body.datasets[s.datasetIndex].label, body.datasets[s.datasetIndex].rows),
++        keyColumnKey: s.keyColumn,
++        previousKeyColumnKey: s.previousKeyColumn,
++        joinType: s.joinType ?? ('INNER' as JoinType),
++      }));
++
++      const joinResult = joinManyDatasets(base, resolvedSteps);
++      result = {
++        rows: joinResultToPlainRows(joinResult),
++        columns: joinResult.columns.map((c) => c.name),
++        rowCount: joinResult.rows.length,
++        unmatchedBaseCount: joinResult.unmatchedBaseCount,
++        unmatchedAdditionCount: joinResult.unmatchedAdditionCount,
++      };
++    } catch (joinErr) {
++      error('Erreur pendant la jointure: ' + (joinErr as Error).message);
++      await logApiUsage(databases, databaseId, process.env.APPWRITE_COLLECTION_API_USAGE_LOGS!, auth.apiKey.$id, 'ANALYSIS_ENGINE_API', 'flexible.join_datasets', 400);
++      return res.json({ error: 'Erreur lors de la jointure — vérifiez les noms de colonnes clés fournis.' }, 400);
++    }
++
++    await logApiUsage(databases, databaseId, process.env.APPWRITE_COLLECTION_API_USAGE_LOGS!, auth.apiKey.$id, 'ANALYSIS_ENGINE_API', 'flexible.join_datasets', 200);
++
++    return res.json({ result }, 200);
++  } catch (err) {
++    error('Erreur api-join-datasets: ' + (err as Error).message);
++    return res.json({ error: 'Erreur serveur.' }, 500);
++  }
++};
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=package-lock.json' repo_after_step1b/appwrite/functions/api-join-datasets/tsconfig.json repo/appwrite/functions/api-join-datasets/tsconfig.json
+--- repo_after_step1b/appwrite/functions/api-join-datasets/tsconfig.json	1970-01-01 00:00:00.000000000 +0000
++++ repo/appwrite/functions/api-join-datasets/tsconfig.json	2026-09-06 19:04:04.150964573 +0000
+@@ -0,0 +1,13 @@
++{
++  "compilerOptions": {
++    "target": "ES2020",
++    "module": "CommonJS",
++    "moduleResolution": "node",
++    "outDir": "dist",
++    "rootDir": "src",
++    "strict": true,
++    "esModuleInterop": true,
++    "skipLibCheck": true
++  },
++  "include": ["src"]
++}
+\ No newline at end of file
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=package-lock.json' repo_after_step1b/packages/engine/src/flexible/joinDatasets.test.ts repo/packages/engine/src/flexible/joinDatasets.test.ts
+--- repo_after_step1b/packages/engine/src/flexible/joinDatasets.test.ts	2026-09-06 19:05:20.080827642 +0000
++++ repo/packages/engine/src/flexible/joinDatasets.test.ts	2026-09-06 19:03:37.717132826 +0000
+@@ -1,6 +1,6 @@
+ //packages/engine/src/flexible/joinDatasets.test.ts
+ import { describe, it, expect } from 'vitest';
+-import { joinTwoDatasets, joinManyDatasets, type JoinableDataset } from './joinDatasets';
++import { joinTwoDatasets, joinManyDatasets, datasetFromPlainRows, joinResultToPlainRows, type JoinableDataset } from './joinDatasets';
+ import type { DatasetColumnDef, DatasetRow } from './types';
+ 
+ function col(key: string, name: string, order: number): DatasetColumnDef {
+@@ -129,3 +129,36 @@
+     );
+   });
+ });
++
++describe('datasetFromPlainRows / joinResultToPlainRows (adaptateurs API)', () => {
++  it('construit un JoinableDataset exploitable à partir de simples objets JSON', () => {
++    const ds = datasetFromPlainRows('apprenants', [
++      { id_apprenant: 'APP0001', zone: 'Cotonou' },
++      { id_apprenant: 'APP0002', zone: 'Calavi' },
++    ]);
++    expect(ds.columns.map((c) => c.key).sort()).toEqual(['id_apprenant', 'zone']);
++    expect(ds.rows).toHaveLength(2);
++    expect(ds.rows[0].payload).toEqual({ id_apprenant: 'APP0001', zone: 'Cotonou' });
++  });
++
++  it('round-trip complet : objets bruts -> jointure -> objets bruts, identique au chemin Studio', () => {
++    const dsApprenants = datasetFromPlainRows('apprenants', [
++      { id_apprenant: 'APP0001', zone: 'Cotonou' },
++      { id_apprenant: 'APP0002', zone: 'Calavi' },
++    ]);
++    const dsInscriptions = datasetFromPlainRows('inscriptions', [
++      { id_inscription: 'INS0001', id_apprenant: 'APP0001', module: 'Comptabilité' },
++      { id_inscription: 'INS0002', id_apprenant: 'APP0001', module: 'RH' },
++      { id_inscription: 'INS0003', id_apprenant: 'APP0002', module: 'Informatique' },
++    ]);
++
++    const result = joinManyDatasets(dsApprenants, [
++      { dataset: dsInscriptions, keyColumnKey: 'id_apprenant', previousKeyColumnKey: 'id_apprenant', joinType: 'INNER' },
++    ]);
++    const plain = joinResultToPlainRows(result);
++
++    expect(plain).toHaveLength(3);
++    expect(plain.every((r) => 'zone' in r && 'module' in r)).toBe(true);
++    expect(plain.find((r) => r.id_inscription === 'INS0002')?.zone).toBe('Cotonou');
++  });
++});
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=package-lock.json' repo_after_step1b/packages/engine/src/flexible/joinDatasets.ts repo/packages/engine/src/flexible/joinDatasets.ts
+--- repo_after_step1b/packages/engine/src/flexible/joinDatasets.ts	2026-09-06 19:05:20.080947469 +0000
++++ repo/packages/engine/src/flexible/joinDatasets.ts	2026-09-06 19:03:13.046518574 +0000
+@@ -158,7 +158,6 @@
+   previousKeyColumnKey: string;
+   joinType?: JoinType;
+ }
+-
+ /**
+  * Applique une chaîne de jointures à partir d'un dataset de base.
+  * Chaque étape se comporte comme un JOIN SQL supplémentaire appliqué
+@@ -197,3 +196,50 @@
+ 
+   return acc;
+ }
++
++// ---------------------------------------------------------------------
++// Adaptateurs "lignes brutes" — pour les appelants qui n'ont pas de
++// colonnes typées (ex: l'API publique, qui reçoit des tableaux d'objets
++// JSON simples). Permettent de réutiliser exactement la même logique de
++// jointure sans dupliquer quoi que ce soit.
++// ---------------------------------------------------------------------
++
++/**
++ * Construit un JoinableDataset à partir d'un simple tableau d'objets,
++ * en synthétisant des définitions de colonnes minimales à partir des
++ * clés de la première ligne. Le `data_type`/`role` synthétiques ne
++ * servent qu'à satisfaire la forme du type — la logique de jointure et
++ * d'agrégation ne s'appuie que sur `key`.
++ */
++export function datasetFromPlainRows(datasetLabel: string, rows: Record<string, unknown>[]): JoinableDataset {
++  const keys = rows.length > 0 ? Object.keys(rows[0]) : [];
++  const columns: DatasetColumnDef[] = keys.map((key, i) => ({
++    $id: `col_${datasetLabel}_${key}`,
++    dataset_id: datasetLabel,
++    name: key,
++    key,
++    data_type: 'TEXT',
++    role: 'DIMENSION',
++    order: i,
++  }));
++  const datasetRows: DatasetRow[] = rows.map((payload, i) => ({
++    $id: `row_${datasetLabel}_${i}`,
++    dataset_id: datasetLabel,
++    row_index: i,
++    payload,
++  }));
++  return { datasetId: datasetLabel, datasetLabel, columns, rows: datasetRows };
++}
++
++/**
++ * Convertit le résultat d'une jointure en tableau d'objets simples,
++ * indexés par le nom lisible de chaque colonne plutôt que sa `key`
++ * interne — c'est la forme attendue en sortie de l'API publique.
++ */
++export function joinResultToPlainRows(result: DatasetJoinResult): Record<string, unknown>[] {
++  return result.rows.map((r) => {
++    const out: Record<string, unknown> = {};
++    for (const c of result.columns) out[c.name] = r.payload[c.key] ?? null;
++    return out;
++  });
++}

@@ -158,7 +158,6 @@ export interface JoinStep {
   previousKeyColumnKey: string;
   joinType?: JoinType;
 }
-
 /**
  * Applique une chaîne de jointures à partir d'un dataset de base.
  * Chaque étape se comporte comme un JOIN SQL supplémentaire appliqué
@@ -196,4 +195,51 @@ export function joinManyDatasets(base: JoinableDataset, steps: JoinStep[]): Data
   }
 
   return acc;
+}
+
+// ---------------------------------------------------------------------
+// Adaptateurs "lignes brutes" — pour les appelants qui n'ont pas de
+// colonnes typées (ex: l'API publique, qui reçoit des tableaux d'objets
+// JSON simples). Permettent de réutiliser exactement la même logique de
+// jointure sans dupliquer quoi que ce soit.
+// ---------------------------------------------------------------------
+
+/**
+ * Construit un JoinableDataset à partir d'un simple tableau d'objets,
+ * en synthétisant des définitions de colonnes minimales à partir des
+ * clés de la première ligne. Le `data_type`/`role` synthétiques ne
+ * servent qu'à satisfaire la forme du type — la logique de jointure et
+ * d'agrégation ne s'appuie que sur `key`.
+ */
+export function datasetFromPlainRows(datasetLabel: string, rows: Record<string, unknown>[]): JoinableDataset {
+  const keys = rows.length > 0 ? Object.keys(rows[0]) : [];
+  const columns: DatasetColumnDef[] = keys.map((key, i) => ({
+    $id: `col_${datasetLabel}_${key}`,
+    dataset_id: datasetLabel,
+    name: key,
+    key,
+    data_type: 'TEXT',
+    role: 'DIMENSION',
+    order: i,
+  }));
+  const datasetRows: DatasetRow[] = rows.map((payload, i) => ({
+    $id: `row_${datasetLabel}_${i}`,
+    dataset_id: datasetLabel,
+    row_index: i,
+    payload,
+  }));
+  return { datasetId: datasetLabel, datasetLabel, columns, rows: datasetRows };
+}
+
+/**
+ * Convertit le résultat d'une jointure en tableau d'objets simples,
+ * indexés par le nom lisible de chaque colonne plutôt que sa `key`
+ * interne — c'est la forme attendue en sortie de l'API publique.
+ */
+export function joinResultToPlainRows(result: DatasetJoinResult): Record<string, unknown>[] {
+  return result.rows.map((r) => {
+    const out: Record<string, unknown> = {};
+    for (const c of result.columns) out[c.name] = r.payload[c.key] ?? null;
+    return out;
+  });
 }

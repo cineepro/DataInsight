@@ -1,6 +1,6 @@
 //packages/engine/src/flexible/joinDatasets.test.ts
 import { describe, it, expect } from 'vitest';
-import { joinTwoDatasets, joinManyDatasets, type JoinableDataset } from './joinDatasets';
+import { joinTwoDatasets, joinManyDatasets, datasetFromPlainRows, joinResultToPlainRows, type JoinableDataset } from './joinDatasets';
 import type { DatasetColumnDef, DatasetRow } from './types';
 
 function col(key: string, name: string, order: number): DatasetColumnDef {
@@ -127,5 +127,38 @@ describe('joinManyDatasets', () => {
     expect(result.columns.map((c) => c.key).sort()).toEqual(
       ['id_apprenant', 'id_inscription', 'module', 'present', 'semaine', 'zone'].sort()
     );
+  });
+});
+
+describe('datasetFromPlainRows / joinResultToPlainRows (adaptateurs API)', () => {
+  it('construit un JoinableDataset exploitable à partir de simples objets JSON', () => {
+    const ds = datasetFromPlainRows('apprenants', [
+      { id_apprenant: 'APP0001', zone: 'Cotonou' },
+      { id_apprenant: 'APP0002', zone: 'Calavi' },
+    ]);
+    expect(ds.columns.map((c) => c.key).sort()).toEqual(['id_apprenant', 'zone']);
+    expect(ds.rows).toHaveLength(2);
+    expect(ds.rows[0].payload).toEqual({ id_apprenant: 'APP0001', zone: 'Cotonou' });
+  });
+
+  it('round-trip complet : objets bruts -> jointure -> objets bruts, identique au chemin Studio', () => {
+    const dsApprenants = datasetFromPlainRows('apprenants', [
+      { id_apprenant: 'APP0001', zone: 'Cotonou' },
+      { id_apprenant: 'APP0002', zone: 'Calavi' },
+    ]);
+    const dsInscriptions = datasetFromPlainRows('inscriptions', [
+      { id_inscription: 'INS0001', id_apprenant: 'APP0001', module: 'Comptabilité' },
+      { id_inscription: 'INS0002', id_apprenant: 'APP0001', module: 'RH' },
+      { id_inscription: 'INS0003', id_apprenant: 'APP0002', module: 'Informatique' },
+    ]);
+
+    const result = joinManyDatasets(dsApprenants, [
+      { dataset: dsInscriptions, keyColumnKey: 'id_apprenant', previousKeyColumnKey: 'id_apprenant', joinType: 'INNER' },
+    ]);
+    const plain = joinResultToPlainRows(result);
+
+    expect(plain).toHaveLength(3);
+    expect(plain.every((r) => 'zone' in r && 'module' in r)).toBe(true);
+    expect(plain.find((r) => r.id_inscription === 'INS0002')?.zone).toBe('Cotonou');
   });
 });
