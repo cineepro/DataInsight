@@ -1,0 +1,14 @@
+{
+  "functionId": "recompute-churn-status",
+  "name": "recompute-churn-status",
+  "runtime": "node-18.0",
+  "execute": ["team:admins"],
+  "events": [],
+  "schedule": "0 3 * * *",
+  "timeout": 120,
+  "enabled": true,
+  "logging": true,
+  "entrypoint": "dist/main.js",
+  "commands": "npm install && npm run build",
+  "path": "functions/recompute-churn-status"
+}
