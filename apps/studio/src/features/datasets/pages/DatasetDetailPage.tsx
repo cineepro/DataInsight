@@ -26,6 +26,7 @@ import { aggregateByDimensions } from '../../../engine/flexible/aggregateByDimen
 import { topNByDimension } from '../../../engine/flexible/topNByDimension';
 import { crossCorrelateColumns } from '../../../engine/flexible/crossCorrelateColumns';
 import { detectAnomaliesInColumn } from '../../../engine/flexible/detectAnomaliesInColumn';
+import { analyzeTrendByPeriod } from '../../../engine/flexible/analyzeTrendByPeriod';
 import { compareDatasetSnapshots } from '../../../engine/flexible/compareDatasetSnapshots';
 
 import DatasetPreviewTable from '../components/DatasetPreviewTable';
@@ -185,6 +186,19 @@ export default function DatasetDetailPage() {
       if (!metric) return null;
       return detectAnomaliesInColumn(rows, metric, config.identifierKey ? findCol(config.identifierKey) : null, periodLabel, thresholds); // synchrone désormais
     }
+    case 'analyze_trend_by_period': {
+      const periodCol = findCol(config.periodKey);
+      if (!periodCol) return null;
+      return analyzeTrendByPeriod(
+        rows,
+        periodCol,
+        config.groupKey ? findCol(config.groupKey) : null,
+        config.metricKey ? findCol(config.metricKey) : null,
+        config.aggregation,
+        periodLabel,
+        thresholds
+      );
+    }
     case 'compare_snapshots': {
       return null;
     }
@@ -200,11 +214,18 @@ async function handleRunAnalysis() {
     const periodLabel = dataset.period_label ?? dataset.name;
     const computedResults: AnalysisResult[] = [];
 
-    // Les seuils des 2 fonctions flexible.* concernées ne changent pas
+    // Les seuils des fonctions flexible.* concernées ne changent pas
     // d'une itération à l'autre dans cette boucle — on les résout une
     // seule fois chacun, avant la boucle, plutôt qu'à chaque config.
     const crossCorrelateThresholds = await getThresholds('flexible.cross_correlate');
     const anomaliesThresholds = await getThresholds('flexible.detect_anomalies');
+    const trendThresholds = await getThresholds('flexible.analyze_trend_by_period');
+
+    const thresholdsByType: Partial<Record<FlexibleFunctionConfig['type'], Record<string, number>>> = {
+      cross_correlate_columns: crossCorrelateThresholds,
+      detect_anomalies: anomaliesThresholds,
+      analyze_trend_by_period: trendThresholds,
+    };
 
     for (const config of selectedConfigs) {
       if (config.type === 'compare_snapshots') {
@@ -221,7 +242,7 @@ async function handleRunAnalysis() {
           )
         );
       } else {
-        const relevantThresholds = config.type === 'cross_correlate_columns' ? crossCorrelateThresholds : anomaliesThresholds;
+        const relevantThresholds = thresholdsByType[config.type] ?? {};
         const result = runConfig(config, periodLabel, relevantThresholds);
         if (result) computedResults.push(result);
       }

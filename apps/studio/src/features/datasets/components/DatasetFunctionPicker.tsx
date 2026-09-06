@@ -23,6 +23,7 @@ export default function DatasetFunctionPicker({ columns, otherDatasets, onChange
   const dimensionColumns = columnsWithRole(columns, 'DIMENSION');
   const metricColumns = columnsWithRole(columns, 'METRIC');
   const identifierColumns = columnsWithRole(columns, 'IDENTIFIER');
+  const dateColumns = columnsWithRole(columns, 'DATE');
   const available = getAvailableFlexibleFunctions(columns);
 
   const [enabled, setEnabled] = useState<Record<string, boolean>>({});
@@ -62,6 +63,10 @@ export default function DatasetFunctionPicker({ columns, otherDatasets, onChange
     if (enabledMap.detect_anomalies && configMap.detect_anomalies) {
       const c = configMap.detect_anomalies as any;
       if (c.metricKey) result.push({ type: 'detect_anomalies', metricKey: c.metricKey, identifierKey: c.identifierKey });
+    }
+    if (enabledMap.analyze_trend_by_period && configMap.analyze_trend_by_period) {
+      const c = configMap.analyze_trend_by_period as any;
+      if (c.periodKey) result.push({ type: 'analyze_trend_by_period', periodKey: c.periodKey, groupKey: c.groupKey, metricKey: c.metricKey, aggregation: c.aggregation ?? 'AVERAGE' });
     }
     if (enabledMap.compare_snapshots && configMap.compare_snapshots) {
       const c = configMap.compare_snapshots as any;
@@ -265,6 +270,52 @@ export default function DatasetFunctionPicker({ columns, otherDatasets, onChange
                 onChange={(v) => updateConfig('detect_anomalies', { identifierKey: v } as any)}
                 options={identifierColumns.map((c) => ({ label: c.name, value: c.key }))}
                 placeholder="Aucun"
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {available.some((fn) => fn.id === 'analyze_trend_by_period') && (
+        <div className="border border-neutral-200 p-3">
+          <Checkbox
+            label="Évolution & point de rupture"
+            description="Suit une mesure période par période et détecte automatiquement la plus forte chute."
+            checked={!!enabled.analyze_trend_by_period}
+            onChange={(c) => toggle('analyze_trend_by_period', c)}
+          />
+          {enabled.analyze_trend_by_period && (
+            <div className="mt-3 grid grid-cols-2 gap-2 pl-7">
+              <Select
+                label="Période (ex: semaine)"
+                value={(configs.analyze_trend_by_period as any)?.periodKey ?? ''}
+                onChange={(v) => updateConfig('analyze_trend_by_period', { periodKey: v } as any)}
+                options={(dateColumns.length > 0 ? dateColumns : dimensionColumns).map((c) => ({ label: c.name, value: c.key }))}
+                placeholder="Choisir"
+              />
+              <Select
+                label="Grouper par (optionnel)"
+                value={(configs.analyze_trend_by_period as any)?.groupKey ?? ''}
+                onChange={(v) => updateConfig('analyze_trend_by_period', { groupKey: v } as any)}
+                options={dimensionColumns.map((c) => ({ label: c.name, value: c.key }))}
+                placeholder="Aucun (une seule série)"
+              />
+              <Select
+                label="Mesure (optionnel)"
+                value={(configs.analyze_trend_by_period as any)?.metricKey ?? ''}
+                onChange={(v) => updateConfig('analyze_trend_by_period', { metricKey: v } as any)}
+                options={metricColumns.map((c) => ({ label: c.name, value: c.key }))}
+                placeholder="Aucune (compte)"
+              />
+              <Select
+                label="Calcul"
+                value={(configs.analyze_trend_by_period as any)?.aggregation ?? 'AVERAGE'}
+                onChange={(v) => updateConfig('analyze_trend_by_period', { aggregation: v } as any)}
+                options={[
+                  { label: 'Moyenne', value: 'AVERAGE' },
+                  { label: 'Somme', value: 'SUM' },
+                  { label: 'Compte', value: 'COUNT' },
+                ]}
               />
             </div>
           )}

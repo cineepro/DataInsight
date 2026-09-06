@@ -7,6 +7,7 @@ export type FlexibleFunctionId =
   | 'top_n_by_dimension'
   | 'cross_correlate_columns'
   | 'detect_anomalies'
+  | 'analyze_trend_by_period'
   | 'compare_snapshots';
 
 export interface FlexibleFunctionDescriptor {
@@ -51,6 +52,13 @@ export const FLEXIBLE_FUNCTIONS: FlexibleFunctionDescriptor[] = [
     label: "Détection d'anomalies",
     description: 'Repère les valeurs statistiquement aberrantes dans une mesure.',
     requiredRoles: ['METRIC'],
+    minColumnsNeeded: 1,
+  },
+  {
+    id: 'analyze_trend_by_period',
+    label: 'Évolution & point de rupture',
+    description: "Suit une mesure période par période (ex: semaine) et détecte automatiquement la plus forte chute — utile pour repérer un décrochage.",
+    requiredRoles: ['DATE'],
     minColumnsNeeded: 1,
   },
   {

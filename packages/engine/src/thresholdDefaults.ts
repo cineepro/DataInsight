@@ -39,6 +39,9 @@ export const DEFAULT_THRESHOLDS: Record<string, Record<string, number>> = {
   'flexible.detect_anomalies': {
     std_dev_threshold: 2,
   },
+  'flexible.analyze_trend_by_period': {
+    rupture_threshold_percentage: -15,
+  },
   'common.churn_risk': {
     at_risk_multiplier: 2,
     churned_multiplier: 4,
