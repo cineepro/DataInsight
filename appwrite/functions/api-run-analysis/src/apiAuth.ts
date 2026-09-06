@@ -1,21 +1,10 @@
 //appwrite/functions/api-run-analysis/src/apiAuth.ts
 import { createHash } from 'crypto';
 import { Databases, Query } from 'node-appwrite';
-
-export interface ApiKeyRecord {
-  $id: string;
-  key_prefix: string;
-  key_hash: string;
-  owner_name: string;
-  product_scope: 'ASTRA_API' | 'ANALYSIS_ENGINE_API' | 'BOTH';
-  tier: string;
-  monthly_quota: number;
-  requests_used: number;
-  status: 'ACTIVE' | 'SUSPENDED' | 'REVOKED';
-}
+import type { ApiKey, ApiProductScope } from '@datainsight/shared';
 
 export type AuthResult =
-  | { ok: true; apiKey: ApiKeyRecord }
+  | { ok: true; apiKey: ApiKey }
   | { ok: false; status: number; error: string };
 
 function sha256Hex(input: string): string {
@@ -33,7 +22,7 @@ export async function verifyApiKey(
   databaseId: string,
   apiKeysCollectionId: string,
   rawKey: string | undefined,
-  requiredScope: 'ASTRA_API' | 'ANALYSIS_ENGINE_API'
+  requiredScope: ApiProductScope
 ): Promise<AuthResult> {
   if (!rawKey) {
     return { ok: false, status: 401, error: 'Clé API manquante (en-tête x-api-key requis).' };
@@ -46,7 +35,7 @@ export async function verifyApiKey(
     Query.limit(1),
   ]);
 
-  const apiKey = result.documents[0] as unknown as ApiKeyRecord | undefined;
+  const apiKey = result.documents[0] as unknown as ApiKey | undefined;
 
   if (!apiKey) {
     return { ok: false, status: 401, error: 'Clé API invalide.' };
@@ -76,7 +65,7 @@ export async function logApiUsage(
   databaseId: string,
   usageLogsCollectionId: string,
   keyId: string,
-  product: 'ASTRA_API' | 'ANALYSIS_ENGINE_API',
+  product: ApiProductScope,
   endpoint: string,
   statusCode: number
 ): Promise<void> {

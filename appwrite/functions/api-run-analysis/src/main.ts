@@ -1,8 +1,7 @@
 //appwrite/functions/api-run-analysis/src/main.ts
 import { Client, Databases } from 'node-appwrite';
 import { verifyApiKey, logApiUsage } from './apiAuth';
-import { FUNCTION_ID_TO_RUNNER } from './engine/registry';
-import { getDefaultThresholds } from './engine/thresholdDefaults';
+import { FUNCTION_ID_TO_RUNNER, getDefaultThresholds } from '@datainsight/engine';
 
 interface RequestPayload {
   category: 'RESTAURANT' | 'FASTFOOD' | 'PHARMACIE' | 'ENTREPRISE';

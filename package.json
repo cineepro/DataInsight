@@ -3,8 +3,12 @@
   "private": true,
   "workspaces": [
     "packages/*",
-    "apps/*"
+    "apps/*",
+    "appwrite/functions/*"
   ],
+  "devDependencies": {
+    "esbuild": "^0.23.0"
+  },
   "scripts": {
     "dev:collect": "npm run dev --workspace=apps/collect",
     "dev:studio": "npm run dev --workspace=apps/studio",
