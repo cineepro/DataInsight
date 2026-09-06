@@ -54,7 +54,17 @@ export default function DatasetsPage() {
           <span className="font-mono text-[11px] uppercase tracking-wider text-neutral-400">Données brutes</span>
           <h1 className="font-display text-2xl font-medium text-ink">Datasets importés</h1>
         </div>
-        <Button onClick={() => setShowUpload(true)}>+ Importer un fichier</Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setShowUpload(true)}>+ Importer un fichier</Button>
+          {selectedTenant && (
+            <Button
+              variant="secondary"
+              onClick={() => navigate('/datasets/join', { state: { tenantId: selectedTenant.slug } })}
+            >
+              🔗 Fusionner des datasets
+            </Button>
+          )}
+        </div>
       </div>
 
       {showUpload ? (

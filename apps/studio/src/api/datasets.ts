@@ -15,7 +15,7 @@ export interface Dataset {
   tenant_id: string;
   name: string;
   description?: string;
-  source_type: 'EXCEL' | 'CSV' | 'MANUAL';
+  source_type: 'EXCEL' | 'CSV' | 'MANUAL' | 'FUSION';
   period_label?: string;
   status: 'DRAFT' | 'IMPORTED' | 'ANALYZED';
   row_count: number;
@@ -58,7 +58,7 @@ export async function createDataset(input: {
   tenant_id: string;
   name: string;
   description?: string;
-  source_type: 'EXCEL' | 'CSV' | 'MANUAL';
+  source_type: 'EXCEL' | 'CSV' | 'MANUAL' | 'FUSION';
   period_label?: string;
   uploaded_by?: string;
 }): Promise<Dataset> {

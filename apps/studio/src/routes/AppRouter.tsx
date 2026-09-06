@@ -14,6 +14,7 @@ import BillingPage from '../features/billing/pages/BillingPage';
 import AlertsPage from '../features/alerts/pages/AlertsPage';
 
 import DatasetsPage from '../features/datasets/pages/DatasetsPage';
+import DatasetJoinPage from '../features/datasets/pages/DatasetJoinPage';
 import DatasetDetailPage from '../features/datasets/pages/DatasetDetailPage';
 
 import StatisticsPage from '../features/statistics/pages/StatisticsPage';
@@ -71,6 +72,7 @@ export default function AppRouter() {
           <Route path="/billing" element={<BillingPage />} />
           <Route path="/alerts" element={<AlertsPage />} />
           <Route path="/datasets" element={<DatasetsPage />} />
+          <Route path="/datasets/join" element={<DatasetJoinPage />} />
           <Route path="/datasets/:id" element={<DatasetDetailPage />} />
           <Route path="/statistics" element={<StatisticsPage />} />
           <Route path="/ai-lab" element={<AiLabPage />} />
