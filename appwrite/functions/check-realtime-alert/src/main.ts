@@ -8,6 +8,9 @@ const SATISFACTION_WINDOW_MS = 2 * 60 * 60 * 1000; // 2h
 const SATISFACTION_THRESHOLD_COUNT = 4;
 const SATISFACTION_LOW_VALUE = 2;
 
+const LONG_WAIT_WINDOW_MS = 2 * 60 * 60 * 1000; // 2h — même fenêtre que la satisfaction
+const LONG_WAIT_THRESHOLD_COUNT = 4;
+
 const ALERT_COOLDOWN_MS = 2 * 60 * 60 * 1000; // 2h — évite de spammer la même alerte
 
 /**
@@ -49,6 +52,10 @@ export default async ({ req, res, log, error }: any) => {
 
     if (isRestaurantScan && eventData.satisfaction_global <= SATISFACTION_LOW_VALUE) {
       await checkSatisfactionDropAlert(databases, databaseId, alertsCollectionId, tenantId, log);
+    }
+
+    if (isRestaurantScan && eventData.wait_time_bucket === 'GT30') {
+      await checkLongWaitAlert(databases, databaseId, alertsCollectionId, tenantId, log);
     }
 
     return res.json({ checked: true }, 200);
@@ -99,6 +106,29 @@ export default async ({ req, res, log, error }: any) => {
       await triggerAlert(db, dbId, alertsId, tenant, 'SATISFACTION_DROP', {
         count: scans.documents.length,
         windowHours: SATISFACTION_WINDOW_MS / 3600000,
+      }, logFn);
+    }
+  }
+
+  async function checkLongWaitAlert(
+    db: Databases,
+    dbId: string,
+    alertsId: string,
+    tenant: string,
+    logFn: any
+  ) {
+    const windowStart = new Date(Date.now() - LONG_WAIT_WINDOW_MS).toISOString();
+    const scans = await db.listDocuments(dbId, scanRestaurantId, [
+      Query.equal('tenant_id', tenant),
+      Query.equal('wait_time_bucket', 'GT30'),
+      Query.greaterThan('timestamp', windowStart),
+      Query.limit(LONG_WAIT_THRESHOLD_COUNT + 1),
+    ]);
+
+    if (scans.documents.length >= LONG_WAIT_THRESHOLD_COUNT) {
+      await triggerAlert(db, dbId, alertsId, tenant, 'LONG_WAIT_SPIKE', {
+        count: scans.documents.length,
+        windowHours: LONG_WAIT_WINDOW_MS / 3600000,
       }, logFn);
     }
   }
