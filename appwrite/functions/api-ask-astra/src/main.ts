@@ -1,118 +1,22 @@
 //appwrite/functions/api-ask-astra/src/main.ts
 import { Client, Databases, Query } from 'node-appwrite';
 import { verifyApiKey, logApiUsage } from './apiAuth';
+import { computeSectorBenchmark, fetchSectorFindings, fetchKnowledgeBase, MIN_TENANTS_FOR_BENCHMARK, type AstraContextEnv } from '@datainsight/astra-context';
 
 interface RequestPayload {
   question: string;
   sector: string;
 }
 
-const MIN_TENANTS_FOR_BENCHMARK = 3;
-const MAX_FINDINGS_IN_CONTEXT = 12;
-
-const SECTOR_TO_TENANT_CATEGORIES: Record<string, string[]> = {
-  RESTAURATION: ['RESTAURANT', 'FASTFOOD'],
-  PHARMACIE: ['PHARMACIE'],
-  COMMERCE_DETAIL: ['ENTREPRISE'],
-  HOTELLERIE: [],
-  GENERAL: [],
-};
-
-async function computeSectorBenchmark(
-  databases: any,
-  databaseId: string,
-  sector: string
-): Promise<{ text: string | null; distinctTenants: Set<string> }> {
-  const categories = SECTOR_TO_TENANT_CATEGORIES[sector] ?? [];
-  const distinctTenants = new Set<string>();
-  if (categories.length === 0) return { text: null, distinctTenants };
-
-  const collectionMap: Record<string, string> = {
-    RESTAURANT: process.env.APPWRITE_COLLECTION_SCANS_RESTAURANT!,
-    FASTFOOD: process.env.APPWRITE_COLLECTION_SCANS_RESTAURANT!,
-    PHARMACIE: process.env.APPWRITE_COLLECTION_SCANS_PHARMACIE!,
-    ENTREPRISE: process.env.APPWRITE_COLLECTION_SCANS_ENTREPRISE!,
+function astraContextEnv(): AstraContextEnv {
+  return {
+    scansRestaurantCollectionId: process.env.APPWRITE_COLLECTION_SCANS_RESTAURANT!,
+    scansPharmacieCollectionId: process.env.APPWRITE_COLLECTION_SCANS_PHARMACIE!,
+    scansEntrepriseCollectionId: process.env.APPWRITE_COLLECTION_SCANS_ENTREPRISE!,
+    weeklyReportsCollectionId: process.env.APPWRITE_COLLECTION_WEEKLY_REPORTS!,
+    datasetReportsCollectionId: process.env.APPWRITE_COLLECTION_DATASET_REPORTS!,
+    knowledgeBaseCollectionId: process.env.APPWRITE_COLLECTION_KNOWLEDGE_BASE!,
   };
-
-  const satisfactionValues: number[] = [];
-  let totalScans = 0;
-
-  for (const category of categories) {
-    const collectionId = collectionMap[category];
-    if (!collectionId) continue;
-    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const result = await databases.listDocuments(databaseId, collectionId, [
-      Query.greaterThan('timestamp', since),
-      Query.limit(500),
-    ]);
-    for (const doc of result.documents as any[]) {
-      distinctTenants.add(doc.tenant_id);
-      totalScans++;
-      if (typeof doc.satisfaction_global === 'number') satisfactionValues.push(doc.satisfaction_global);
-    }
-  }
-
-  if (distinctTenants.size < MIN_TENANTS_FOR_BENCHMARK) return { text: null, distinctTenants: new Set() };
-
-  const avgSatisfaction =
-    satisfactionValues.length > 0
-      ? (satisfactionValues.reduce((a, b) => a + b, 0) / satisfactionValues.length).toFixed(2)
-      : null;
-
-  const text = `Données agrégées et anonymisées de ${distinctTenants.size} structures du secteur (30 derniers jours) : ${totalScans} retours clients collectés${avgSatisfaction ? `, satisfaction moyenne de ${avgSatisfaction}/5` : ''}.`;
-
-  return { text, distinctTenants };
-}
-
-async function fetchSectorFindings(databases: any, databaseId: string, eligibleTenantIds: Set<string>): Promise<string | null> {
-  if (eligibleTenantIds.size < MIN_TENANTS_FOR_BENCHMARK) return null;
-  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  const allFindings: string[] = [];
-
-  const weeklyResult = await databases.listDocuments(databaseId, process.env.APPWRITE_COLLECTION_WEEKLY_REPORTS!, [
-    Query.equal('status', 'PUBLISHED'),
-    Query.greaterThan('published_at', since),
-    Query.limit(100),
-  ]);
-  for (const report of weeklyResult.documents as any[]) {
-    if (!eligibleTenantIds.has(report.tenant_id)) continue;
-    try {
-      const results = JSON.parse(report.analysis_result) as Array<{ keyFindings: string[] }>;
-      for (const r of results) if (Array.isArray(r.keyFindings)) allFindings.push(...r.keyFindings);
-    } catch {}
-  }
-
-  const datasetResult = await databases.listDocuments(databaseId, process.env.APPWRITE_COLLECTION_DATASET_REPORTS!, [
-    Query.equal('status', 'PUBLISHED'),
-    Query.greaterThan('published_at', since),
-    Query.limit(100),
-  ]);
-  for (const report of datasetResult.documents as any[]) {
-    if (!eligibleTenantIds.has(report.tenant_id)) continue;
-    try {
-      const results = JSON.parse(report.analysis_result) as Array<{ keyFindings: string[] }>;
-      for (const r of results) if (Array.isArray(r.keyFindings)) allFindings.push(...r.keyFindings);
-    } catch {}
-  }
-
-  if (allFindings.length === 0) return null;
-
-  for (let i = allFindings.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [allFindings[i], allFindings[j]] = [allFindings[j], allFindings[i]];
-  }
-
-  return `Constats récents (mélangés entre plusieurs structures anonymes) :\n${allFindings.slice(0, MAX_FINDINGS_IN_CONTEXT).map((f) => `- ${f}`).join('\n')}`;
-}
-
-async function fetchKnowledgeBase(databases: any, databaseId: string, sector: string): Promise<string> {
-  const result = await databases.listDocuments(databaseId, process.env.APPWRITE_COLLECTION_KNOWLEDGE_BASE!, [
-    Query.equal('sector', [sector, 'GENERAL']),
-    Query.equal('status', 'PUBLISHED'),
-    Query.limit(10),
-  ]);
-  if (result.documents.length === 0) return '';
-  return result.documents.map((doc: any) => `### ${doc.title}\n${doc.content}`).join('\n\n');
 }
 
 export default async ({ req, res, log, error }: any) => {
@@ -146,13 +50,13 @@ export default async ({ req, res, log, error }: any) => {
     log('Requête Astra API pour secteur=' + body.sector + ' par ' + auth.apiKey.owner_name);
 
     const [knowledgeContext, benchmark] = await Promise.all([
-      fetchKnowledgeBase(databases, databaseId, body.sector),
-      computeSectorBenchmark(databases, databaseId, body.sector),
+      fetchKnowledgeBase(databases, databaseId, body.sector, astraContextEnv()),
+      computeSectorBenchmark(databases, databaseId, body.sector, astraContextEnv()),
     ]);
 
     const findingsContext =
       benchmark.distinctTenants.size >= MIN_TENANTS_FOR_BENCHMARK
-        ? await fetchSectorFindings(databases, databaseId, benchmark.distinctTenants)
+        ? await fetchSectorFindings(databases, databaseId, benchmark.distinctTenants, astraContextEnv())
         : null;
 
     const prompt = `Tu es Astra, l'assistant IA d'ASILLIA DataInsight, spécialisé dans le commerce en Afrique de l'Ouest.
