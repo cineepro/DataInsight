@@ -17,6 +17,8 @@ export async function createOfficialSource(input: {
   description?: string;
   sector: string;
   sync_frequency?: string;
+  source_type?: string;
+  source_url?: string;
 }): Promise<OfficialSource> {
   const created = await databases.createDocument(DATABASE_ID, COLLECTIONS.OFFICIAL_SOURCES, ID.unique(), {
     ...input,

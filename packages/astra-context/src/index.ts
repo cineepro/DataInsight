@@ -42,6 +42,7 @@ export interface AstraContextEnv {
   weeklyReportsCollectionId: string;
   datasetReportsCollectionId: string;
   knowledgeBaseCollectionId: string;
+  officialSourcesCollectionId?: string;
 }
 
 export async function computeSectorBenchmark(
@@ -153,6 +154,26 @@ export async function fetchSectorFindings(
   return `Constats récents observés (mélangés entre plusieurs structures anonymes du secteur, ne jamais associer un constat à une structure précise) :\n${sample.map((f) => `- ${f}`).join('\n')}`;
 }
 
+/**
+ * Valide qu'une source officielle existe et est bien ACTIVE avant de
+ * l'utiliser comme connecteur — une source en négociation ou en pause ne
+ * doit jamais être interrogeable, même si son id est connu.
+ */
+export async function getActiveOfficialSource(
+  databases: any,
+  databaseId: string,
+  officialSourceId: string,
+  env: AstraContextEnv
+): Promise<{ $id: string; name: string } | null> {
+  if (!env.officialSourcesCollectionId) return null;
+  try {
+    const doc = await databases.getDocument(databaseId, env.officialSourcesCollectionId, officialSourceId);
+    return doc.status === 'ACTIVE' ? { $id: doc.$id, name: doc.name } : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchKnowledgeBase(
   databases: any,
   databaseId: string,
@@ -163,6 +184,29 @@ export async function fetchKnowledgeBase(
     Query.equal('sector', [sector, 'GENERAL']),
     Query.equal('status', 'PUBLISHED'),
     Query.limit(10),
+  ]);
+
+  if (result.documents.length === 0) return '';
+
+  return result.documents.map((doc: any) => `### ${doc.title}\n${doc.content}`).join('\n\n');
+}
+
+/**
+ * Variante du connecteur : au lieu de chercher par secteur, ne retourne
+ * que les connaissances liées à UNE source officielle précise — c'est ce
+ * qui permet à un compte Premium de "connecter" une source avant de
+ * poser sa question, façon connecteur MCP.
+ */
+export async function fetchKnowledgeBaseBySource(
+  databases: any,
+  databaseId: string,
+  officialSourceId: string,
+  env: AstraContextEnv
+): Promise<string> {
+  const result = await databases.listDocuments(databaseId, env.knowledgeBaseCollectionId, [
+    Query.equal('official_source_id', officialSourceId),
+    Query.equal('status', 'PUBLISHED'),
+    Query.limit(20),
   ]);
 
   if (result.documents.length === 0) return '';

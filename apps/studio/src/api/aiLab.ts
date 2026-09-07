@@ -9,10 +9,14 @@ export interface KnowledgeBaseEntry {
   sector: string;
   content: string;
   status: 'PUBLISHED' | 'DRAFT';
-  origin?: 'MANUAL' | 'AI_SUGGESTED' | 'PUBLIC_CONTRIBUTION';
+  origin?: 'MANUAL' | 'AI_SUGGESTED' | 'PUBLIC_CONTRIBUTION' | 'OFFICIAL_SOURCE';
   contributor_name?: string;
   contributor_contact?: string;
   source_question_count?: number;
+  /** Renseigné pour les entrées issues d'un PDF importé ou d'une source officielle suivie. */
+  source_document_name?: string;
+  /** Lien vers la source officielle d'origine — c'est ce qui fait de chaque source sa propre "boîte" de connaissances. */
+  official_source_id?: string;
   created_by?: string;
   created_at: string;
 }

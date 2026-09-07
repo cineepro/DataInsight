@@ -1,13 +1,14 @@
 //appwrite/functions/ask-ai-lab/src/main.ts
 import { Client, Databases, Query, ID, Users } from 'node-appwrite';
 import { hashVisitorToken } from './hashVisitor';
-import { computeSectorBenchmark, fetchSectorFindings, fetchKnowledgeBase, type AstraContextEnv } from '@datainsight/astra-context';
+import { computeSectorBenchmark, fetchSectorFindings, fetchKnowledgeBase, fetchKnowledgeBaseBySource, getActiveOfficialSource, type AstraContextEnv } from '@datainsight/astra-context';
 
 interface RequestPayload {
   question: string;
   sector: string;
   visitor_token: string;
   conversation_id?: string; // fourni par le front si une conversation Premium est déjà en cours
+  official_source_id?: string; // connecteur Premium — restreint la réponse à cette seule source
 }
 
 const RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -22,6 +23,7 @@ function astraContextEnv(): AstraContextEnv {
     weeklyReportsCollectionId: process.env.APPWRITE_COLLECTION_WEEKLY_REPORTS!,
     datasetReportsCollectionId: process.env.APPWRITE_COLLECTION_DATASET_REPORTS!,
     knowledgeBaseCollectionId: process.env.APPWRITE_COLLECTION_KNOWLEDGE_BASE!,
+    officialSourcesCollectionId: process.env.APPWRITE_COLLECTION_OFFICIAL_SOURCES!,
   };
 }
 
@@ -172,19 +174,49 @@ export default async ({ req, res, log, error }: any) => {
       );
     }
 
-    // --- Construction du contexte RAG (inchangé) ---
-    log('Construction du contexte pour secteur=' + body.sector);
+    // --- Connecteur de source (Premium uniquement) ---
+    // Un compte gratuit qui enverrait quand même official_source_id est
+    // silencieusement ramené au comportement normal par secteur — pas
+    // d'erreur bruyante pour quelque chose que l'interface normale ne
+    // permet de toute façon pas de déclencher.
+    let connectedSource: { $id: string; name: string } | null = null;
+    if (body.official_source_id && aiLabAccount?.plan === 'PREMIUM') {
+      connectedSource = await getActiveOfficialSource(databases, databaseId, body.official_source_id, astraContextEnv());
+      if (!connectedSource) {
+        return res.json({ error: "Cette source n'est plus disponible pour le moment." }, 400);
+      }
+    }
+
+    // --- Construction du contexte RAG ---
+    log(
+      connectedSource
+        ? `Construction du contexte pour la source connectée "${connectedSource.name}"`
+        : 'Construction du contexte pour secteur=' + body.sector
+    );
 
     const [knowledgeContext, benchmark] = await Promise.all([
-      fetchKnowledgeBase(databases, databaseId, body.sector, astraContextEnv()),
+      connectedSource
+        ? fetchKnowledgeBaseBySource(databases, databaseId, connectedSource.$id, astraContextEnv())
+        : fetchKnowledgeBase(databases, databaseId, body.sector, astraContextEnv()),
       computeSectorBenchmark(databases, databaseId, body.sector, astraContextEnv()),
     ]);
 
-    const findingsContext = benchmark.distinctTenants.size >= MIN_TENANTS_FOR_BENCHMARK
+    const findingsContext = !connectedSource && benchmark.distinctTenants.size >= MIN_TENANTS_FOR_BENCHMARK
       ? await fetchSectorFindings(databases, databaseId, benchmark.distinctTenants, astraContextEnv())
       : null;
 
-    const prompt = `Tu es Astra, l'assistant IA d'ASILLIA DataInsight, spécialisé dans le commerce en Afrique de l'Ouest (restaurants, pharmacies, hôtels, commerces). Si on te demande qui tu es, présente-toi par ton nom.
+    const prompt = connectedSource
+      ? `Tu es Astra, l'assistant IA d'ASILLIA DataInsight. L'utilisateur a explicitement connecté la source "${connectedSource.name}" à sa question — tu dois répondre EXCLUSIVEMENT à partir des connaissances ci-dessous, issues de cette source.
+
+${knowledgeContext ? `Connaissances disponibles pour cette source :\n${knowledgeContext}\n` : "Aucune connaissance n'est encore disponible pour cette source.\n"}
+
+Question de l'utilisateur : ${body.question}
+
+Consignes :
+1. Réponds UNIQUEMENT à partir des connaissances ci-dessus — n'utilise aucune autre connaissance générale.
+2. Si les connaissances disponibles ne permettent pas de répondre à la question, dis-le honnêtement plutôt que de répondre avec des informations générales.
+3. Réponds de façon concise (maximum 150 mots), claire et actionnable.`
+      : `Tu es Astra, l'assistant IA d'ASILLIA DataInsight, spécialisé dans le commerce en Afrique de l'Ouest (restaurants, pharmacies, hôtels, commerces). Si on te demande qui tu es, présente-toi par ton nom.
 
 ${knowledgeContext ? `Voici des connaissances de référence sur ce secteur :\n${knowledgeContext}\n` : ''}
 ${benchmark.text ? `Voici des données réelles agrégées et anonymisées :\n${benchmark.text}\n` : ''}

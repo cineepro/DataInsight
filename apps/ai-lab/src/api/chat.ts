@@ -11,7 +11,8 @@ interface AskResponse {
 export async function askQuestion(
   question: string,
   sector: string,
-  conversationId?: string
+  conversationId?: string,
+  officialSourceId?: string
 ): Promise<{ answer: string; conversationId?: string }> {
   const functionId = import.meta.env.VITE_FUNCTION_ASK_AI_LAB;
 
@@ -22,6 +23,7 @@ export async function askQuestion(
       sector,
       visitor_token: getOrCreateVisitorToken(),
       conversation_id: conversationId,
+      official_source_id: officialSourceId,
     }),
     false
   );

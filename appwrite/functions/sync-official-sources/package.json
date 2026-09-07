@@ -1,5 +1,5 @@
 {
-  "name": "extract-pdf-knowledge",
+  "name": "sync-official-sources",
   "version": "1.0.0",
   "type": "commonjs",
   "main": "dist/main.js",
@@ -8,8 +8,10 @@
   },
   "dependencies": {
     "node-appwrite": "^14.0.0",
+    "@datainsight/knowledge-ingestion": "*",
     "pdf-parse": "^1.1.1",
-    "@datainsight/knowledge-ingestion": "*"
+    "rss-parser": "^3.13.0",
+    "html-to-text": "^10.0.1"
   },
   "devDependencies": {
     "typescript": "^5.5.4",

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Logo from '../../../components/Logo';
 import SectorPicker from '../components/SectorPicker';
+import SourceConnector from '../components/SourceConnector';
 import ChatBubble from '../components/ChatBubble';
 import ChatInput from '../components/ChatInput';
 import PageTabs from '../components/PageTabs';
@@ -30,6 +31,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | undefined>();
+  const [connectedSourceId, setConnectedSourceId] = useState<string | undefined>();
 
   useEffect(() => {
     // Vérification silencieuse — n'affecte jamais l'accès au chat gratuit,
@@ -45,7 +47,7 @@ export default function ChatPage() {
   setLoading(true);
 
   try {
-    const result = await askQuestion(question, sector, conversationId);
+    const result = await askQuestion(question, sector, conversationId, connectedSourceId);
     setMessages((prev) => [...prev, { role: 'assistant', content: result.answer }]);
     if (result.conversationId) setConversationId(result.conversationId);
   } catch (err) {
@@ -108,6 +110,10 @@ export default function ChatPage() {
               <SectorPicker value={sector} onChange={setSector} />
             </div>
 
+            {session?.account?.plan === 'PREMIUM' && (
+              <SourceConnector connectedSourceId={connectedSourceId} onChange={setConnectedSourceId} />
+            )}
+
             <div className="flex flex-1 flex-col gap-3 overflow-y-auto pb-4">
               {messages.map((msg, i) => (
                 <ChatBubble key={i} role={msg.role} content={msg.content} />
@@ -120,7 +126,9 @@ export default function ChatPage() {
             <ChatInput onSend={handleSend} disabled={loading} />
 
             <p className="mt-3 text-center text-xs text-neutral-400">
-              {session?.account?.plan === 'PREMIUM'
+              {connectedSourceId
+                ? "Réponse basée uniquement sur la source connectée."
+                : session?.account?.plan === 'PREMIUM'
                 ? `${session.account.daily_question_limit} questions par jour — compte Premium`
                 : 'Réponses basées sur des données agrégées et anonymisées — 5 questions par jour maximum.'}
               {!session && (

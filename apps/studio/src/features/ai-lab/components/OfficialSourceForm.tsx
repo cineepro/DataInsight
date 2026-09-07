@@ -14,6 +14,13 @@ const SECTOR_OPTIONS = [
   { label: 'Commerce de détail', value: 'COMMERCE_DETAIL' },
 ];
 
+const SOURCE_TYPE_OPTIONS = [
+  { label: 'Flux de PDF (rapports, études)', value: 'PDF_FEED' },
+  { label: 'Flux RSS / Atom', value: 'RSS' },
+  { label: 'Page web classique', value: 'WEBSITE' },
+  { label: 'API (pas encore automatisé)', value: 'API' },
+];
+
 interface OfficialSourceFormProps {
   onCreated: () => void;
 }
@@ -23,16 +30,26 @@ export default function OfficialSourceForm({ onCreated }: OfficialSourceFormProp
   const [description, setDescription] = useState('');
   const [sector, setSector] = useState('GENERAL');
   const [syncFrequency, setSyncFrequency] = useState('');
+  const [sourceType, setSourceType] = useState('PDF_FEED');
+  const [sourceUrl, setSourceUrl] = useState('');
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     try {
-      await createOfficialSource({ name, description: description || undefined, sector, sync_frequency: syncFrequency || undefined });
+      await createOfficialSource({
+        name,
+        description: description || undefined,
+        sector,
+        sync_frequency: syncFrequency || undefined,
+        source_type: sourceType,
+        source_url: sourceUrl || undefined,
+      });
       setName('');
       setDescription('');
       setSyncFrequency('');
+      setSourceUrl('');
       onCreated();
     } catch (err) {
       console.error(err);
@@ -48,6 +65,18 @@ export default function OfficialSourceForm({ onCreated }: OfficialSourceFormProp
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <Input label="Nom de la source" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: INStaD" required />
         <Select label="Secteur concerné" value={sector} onChange={setSector} options={SECTOR_OPTIONS} />
+        <Select
+          label="Comment cette source doit être lue"
+          value={sourceType}
+          onChange={setSourceType}
+          options={SOURCE_TYPE_OPTIONS}
+        />
+        <Input
+          label="URL à surveiller (optionnel pour l'instant)"
+          value={sourceUrl}
+          onChange={(e) => setSourceUrl(e.target.value)}
+          placeholder="https://..."
+        />
         <Input
           label="Fréquence de synchronisation (optionnel)"
           value={syncFrequency}

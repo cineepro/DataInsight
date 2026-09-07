@@ -61,6 +61,11 @@ export default function DraftReviewCard({ entry, onResolved }: DraftReviewCardPr
     {entry.origin === 'AI_SUGGESTED' && (
       <span className="rounded-full bg-marigold-500/15 px-2 py-0.5 text-xs text-marigold-600">Proposé par l'IA</span>
     )}
+    {entry.origin === 'OFFICIAL_SOURCE' && (
+      <span className="rounded-full bg-teal/15 px-2 py-0.5 text-xs text-teal">
+        Source officielle{entry.source_document_name ? ` — ${entry.source_document_name}` : ''}
+      </span>
+    )}
   </div>
   {entry.source_question_count && (
     <span className="text-xs text-neutral-400">

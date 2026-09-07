@@ -48,9 +48,12 @@ export default function OfficialSourceList({ sources, onChanged }: OfficialSourc
             </div>
             <p className="text-xs text-neutral-500">
               {source.sector}
+              {source.source_type && ` — ${source.source_type}`}
               {source.sync_frequency && ` — ${source.sync_frequency}`}
-              {source.last_synced_at && ` — dernière synchro : ${new Date(source.last_synced_at).toLocaleDateString('fr-FR')}`}
+              {source.last_synced_at && ` — dernier contenu ajouté : ${new Date(source.last_synced_at).toLocaleDateString('fr-FR')}`}
+              {source.last_checked_at && ` — dernière vérification : ${new Date(source.last_checked_at).toLocaleDateString('fr-FR')}`}
             </p>
+            {source.source_url && <p className="mt-0.5 text-xs text-neutral-400">{source.source_url}</p>}
             {source.description && <p className="mt-1 text-xs text-neutral-400">{source.description}</p>}
           </div>
           <div className="flex items-center gap-2">
