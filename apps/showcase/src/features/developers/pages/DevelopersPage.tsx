@@ -41,7 +41,7 @@ export default function DevelopersPage() {
                   </div>
                 </div>
                 <p className="mt-4 text-sm text-neutral-600">
-                  Les deux fonctionnent selon le même principe : une requête HTTP <code className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs">POST</code> vers un endpoint dédié, authentifiée par une clé API transmise dans un en-tête.
+                  Les deux fonctionnent selon le même principe : une requête HTTP <code className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs">POST</code> vers un endpoint dédié, authentifiée par une clé API transmise dans un en-tête. Selon votre besoin, nous pouvons vous fournir soit deux clés distinctes (une par produit), soit une seule clé donnant accès aux deux — précisez-le lors de votre demande.
                 </p>
               </div>
 
@@ -206,6 +206,27 @@ print(response.json()["answer"])`}
                   <code className="rounded bg-neutral-100 px-1.5 py-0.5">thresholds</code> est optionnel — nos valeurs par défaut s'appliquent si vous ne les précisez pas.
                 </p>
 
+                <h3 className="mb-2 mt-6 text-sm font-semibold text-ink">Le champ context (optionnel)</h3>
+                <p className="mb-3 text-sm leading-relaxed text-neutral-600">
+                  Certaines fonctions ont besoin d'informations supplémentaires pour produire un résultat pertinent — en particulier <code className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs">restaurant.compare_periods</code>, qui compare votre période actuelle à une période antérieure.
+                </p>
+                <CodeBlock
+                  language="json"
+                  code={`{
+  "category": "RESTAURANT",
+  "function_id": "restaurant.compare_periods",
+  "data": [ /* vos scans de la période actuelle */ ],
+  "context": {
+    "year": 2026,
+    "weekNumber": 34,
+    "previousPeriodData": [ /* vos scans de la période précédente, même format que data */ ]
+  }
+}`}
+                />
+                <p className="mt-2 text-xs text-neutral-500">
+                  <code className="rounded bg-neutral-100 px-1.5 py-0.5">year</code> et <code className="rounded bg-neutral-100 px-1.5 py-0.5">weekNumber</code> servent uniquement à étiqueter la période dans la réponse (ex: "Semaine 34 — 2026") — omis, la fonction utilise la semaine en cours. <code className="rounded bg-neutral-100 px-1.5 py-0.5">previousPeriodData</code> n'est nécessaire que pour les fonctions de comparaison.
+                </p>
+
                 <h3 className="mb-2 mt-6 text-sm font-semibold text-ink">Fonctions disponibles</h3>
                 <div className="overflow-x-auto rounded-xl border border-neutral-200">
                   <table className="w-full text-left text-sm">
@@ -271,6 +292,160 @@ print(response.json()["answer"])`}
 
 const { result } = await response.json();
 console.log(result.keyFindings);`}
+                />
+              </div>
+
+              {/* ---------------- DATA JOIN & ANALYSIS API ---------------- */}
+              <div id="join-api" className="scroll-mt-24">
+                <h2 className="mb-2 font-display text-2xl font-medium text-ink">Data Join &amp; Analysis API</h2>
+                <p className="mb-6 text-sm leading-relaxed text-neutral-600">
+                  Vous avez plusieurs fichiers de données liés entre eux (par exemple des clients et leurs commandes) ? Cette API les fusionne selon les clés que vous indiquez, et peut — en option, dans le même appel — lancer une ou plusieurs analyses sur le résultat fusionné. Fait partie de l'<strong>Analysis Engine API</strong> — même clé, même quota.
+                </p>
+
+                <h3 className="mb-2 text-sm font-semibold text-ink">Endpoint</h3>
+                <CodeBlock code={`POST https://cloud.appwrite.io/v1/functions/api-join-datasets/executions`} />
+
+                <h3 className="mb-2 mt-6 text-sm font-semibold text-ink">En-têtes requis</h3>
+                <CodeBlock
+                  language="http"
+                  code={`Content-Type: application/json
+x-api-key: di_live_votre_cle_ici`}
+                />
+
+                <h3 className="mb-2 mt-6 text-sm font-semibold text-ink">Corps de la requête — jointure seule</h3>
+                <p className="mb-3 text-sm leading-relaxed text-neutral-600">
+                  <code className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs">datasets</code> est la liste de vos fichiers (2 à 6), chacun avec un <code className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs">label</code> et ses <code className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs">rows</code> (vos lignes, en objets JSON simples). <code className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs">steps</code> décrit comment chaque dataset (à partir de l'index 1) se rattache au résultat déjà accumulé — utile quand la colonne de jointure change d'une étape à l'autre.
+                </p>
+                <CodeBlock
+                  language="json"
+                  code={`{
+  "datasets": [
+    { "label": "clients", "rows": [
+      { "id_client": "C001", "ville": "Cotonou" },
+      { "id_client": "C002", "ville": "Calavi" }
+    ]},
+    { "label": "commandes", "rows": [
+      { "id_client": "C001", "montant": 15000, "categorie": "Alimentation" },
+      { "id_client": "C001", "montant": 8000, "categorie": "Boisson" },
+      { "id_client": "C002", "montant": 22000, "categorie": "Alimentation" }
+    ]}
+  ],
+  "steps": [
+    { "datasetIndex": 1, "keyColumn": "id_client", "previousKeyColumn": "id_client", "joinType": "INNER" }
+  ]
+}`}
+                />
+                <p className="mt-2 text-xs text-neutral-500">
+                  <code className="rounded bg-neutral-100 px-1.5 py-0.5">joinType</code> : <code className="rounded bg-neutral-100 px-1.5 py-0.5">INNER</code> (uniquement les correspondances, par défaut) ou <code className="rounded bg-neutral-100 px-1.5 py-0.5">LEFT</code> (toutes les lignes du premier dataset, même sans correspondance).
+                </p>
+
+                <h3 className="mb-2 mt-6 text-sm font-semibold text-ink">Ajouter des analyses (optionnel)</h3>
+                <p className="mb-3 text-sm leading-relaxed text-neutral-600">
+                  Ajoutez un champ <code className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs">analyses</code> pour que le résultat fusionné soit directement analysé, sans second appel. Les colonnes se référencent par leur <strong>nom final</strong> — celui que vous voyez dans <code className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs">result.columns</code> de la réponse, pas une clé interne.
+                </p>
+                <CodeBlock
+                  language="json"
+                  code={`{
+  "datasets": [ /* comme ci-dessus */ ],
+  "steps": [ /* comme ci-dessus */ ],
+  "analyses": [
+    {
+      "type": "pivot_table",
+      "rowColumns": ["ville"],
+      "pivotColumn": "categorie",
+      "metricColumn": "montant",
+      "aggregation": "SUM"
+    }
+  ]
+}`}
+                />
+
+                <h3 className="mb-2 mt-6 text-sm font-semibold text-ink">Les 7 types d'analyse disponibles</h3>
+                <div className="overflow-x-auto rounded-xl border border-neutral-200">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-neutral-200 bg-neutral-50">
+                        <th className="px-4 py-2 font-mono text-xs uppercase text-neutral-500">type</th>
+                        <th className="px-4 py-2 font-mono text-xs uppercase text-neutral-500">Champs</th>
+                        <th className="px-4 py-2 font-mono text-xs uppercase text-neutral-500">Ce que ça calcule</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        ['aggregate_by_dimension', 'dimensionColumn, metricColumn?, aggregation?', "Somme/moyenne/compte groupée par une dimension"],
+                        ['aggregate_by_dimensions', 'dimensionColumns[] (2 min), metricColumn?, aggregation?', 'Idem, en croisant 2 dimensions ou plus'],
+                        ['top_n_by_dimension', 'dimensionColumn, metricColumn?, n?', 'Classement décroissant, limité aux n premiers'],
+                        ['cross_correlate_columns', 'columnA, columnB', 'Corrélation entre deux mesures numériques'],
+                        ['detect_anomalies', 'metricColumn, identifierColumn?', 'Valeurs statistiquement aberrantes'],
+                        ['analyze_trend_by_period', 'periodColumn, groupColumn?, metricColumn?, aggregation?', 'Évolution période par période + détection du point de rupture'],
+                        ['pivot_table', 'rowColumns[], pivotColumn?, metricColumn?, aggregation?', 'Tableau croisé lignes × colonnes'],
+                      ].map(([type, fields, desc]) => (
+                        <tr key={type} className="border-b border-neutral-100 last:border-0">
+                          <td className="px-4 py-2 font-mono text-xs text-ink">{type}</td>
+                          <td className="px-4 py-2 font-mono text-xs text-neutral-600">{fields}</td>
+                          <td className="px-4 py-2 text-neutral-500">{desc}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="mt-2 text-xs text-neutral-500">
+                  <code className="rounded bg-neutral-100 px-1.5 py-0.5">aggregation</code> accepte <code className="rounded bg-neutral-100 px-1.5 py-0.5">SUM</code>, <code className="rounded bg-neutral-100 px-1.5 py-0.5">AVERAGE</code> ou <code className="rounded bg-neutral-100 px-1.5 py-0.5">COUNT</code> (par défaut SUM, sauf pour l'évolution temporelle où c'est AVERAGE). Vous pouvez combiner jusqu'à 10 analyses dans le même appel.
+                </p>
+
+                <h3 className="mb-2 mt-6 text-sm font-semibold text-ink">Réponse (200)</h3>
+                <CodeBlock
+                  language="json"
+                  code={`{
+  "result": {
+    "rows": [ { "id_client": "C001", "ville": "Cotonou", "montant": 15000, "categorie": "Alimentation" }, ... ],
+    "columns": ["id_client", "ville", "montant", "categorie"],
+    "rowCount": 3,
+    "unmatchedBaseCount": 0,
+    "unmatchedAdditionCount": 0,
+    "analyses": [
+      {
+        "metricName": "montant — ville × categorie",
+        "status": "OPTIMAL",
+        "dataPoints": { "rowLabels": [...], "columnLabels": [...], "matrix": [...], "rowTotals": [...], "columnTotals": [...], "grandTotal": 45000 },
+        "keyFindings": ["Cotonou : 23000 au total", "Calavi : 22000 au total"]
+      }
+    ]
+  }
+}`}
+                />
+                <p className="mt-2 text-xs text-neutral-500">
+                  Le champ <code className="rounded bg-neutral-100 px-1.5 py-0.5">analyses</code> n'apparaît dans la réponse que si vous en avez demandé dans la requête.
+                </p>
+
+                <h3 className="mb-2 mt-6 text-sm font-semibold text-ink">Exemple complet (Node.js)</h3>
+                <CodeBlock
+                  language="javascript"
+                  code={`const response = await fetch(
+  "https://cloud.appwrite.io/v1/functions/api-join-datasets/executions",
+  {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": process.env.ASILLIA_API_KEY,
+    },
+    body: JSON.stringify({
+      datasets: [
+        { label: "clients", rows: mesClients },
+        { label: "commandes", rows: mesCommandes },
+      ],
+      steps: [
+        { datasetIndex: 1, keyColumn: "id_client", previousKeyColumn: "id_client", joinType: "INNER" },
+      ],
+      analyses: [
+        { type: "pivot_table", rowColumns: ["ville"], pivotColumn: "categorie", metricColumn: "montant", aggregation: "SUM" },
+      ],
+    }),
+  }
+);
+
+const { result } = await response.json();
+console.log(result.analyses[0].dataPoints.matrix);`}
                 />
               </div>
 

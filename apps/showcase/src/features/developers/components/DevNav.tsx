@@ -4,6 +4,7 @@ const SECTIONS = [
   { id: 'obtenir-cle', label: 'Obtenir une clé' },
   { id: 'astra-api', label: 'Astra API' },
   { id: 'analysis-api', label: 'Analysis Engine API' },
+  { id: 'join-api', label: 'Data Join & Analysis' },
   { id: 'erreurs', label: "Codes d'erreur" },
   { id: 'quotas', label: 'Quotas et tarifs' },
 ];
