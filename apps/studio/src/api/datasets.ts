@@ -162,20 +162,29 @@ async function listAllDatasetRows(datasetId: string): Promise<DatasetRow[]> {
 
 export const listDatasetRows = listAllDatasetRows;
 
-const COLLECTION_ROW_BATCH_SIZE = 8; // réduit — reste sous la limite Appwrite même en rafale
-const DELAY_BETWEEN_BATCHES_MS = 600; // laisse le temps à la fenêtre de rate-limit de se libérer
+const COLLECTION_ROW_BATCH_SIZE = 5; // réduit encore — l'exercice avec G.N. Consult a montré que 8 restait trop proche de la limite Appwrite
+const DELAY_BETWEEN_BATCHES_MS = 2000; // laisse le temps à la fenêtre de rate-limit de se libérer
+const DELAY_BETWEEN_ROWS_MS = 250; // nouveau : espace aussi chaque ligne individuellement, pas seulement les lots
+const MAX_RETRY_ATTEMPTS = 5; // plus tolérant : un 429 isolé ne doit plus faire échouer tout l'import
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
- * Insère les lignes par petits lots, avec une pause entre chaque, pour
- * rester sous la limite de requêtes d'Appwrite Cloud sur les endpoints de
- * création de documents (429 Too Many Requests au-delà). Plus lent qu'un
- * envoi massif en parallèle, mais fiable — pour un fichier de quelques
- * centaines de lignes, l'import prend quelques dizaines de secondes,
- * acceptable pour un usage d'analyste (pas un flux temps réel).
+ * Insère les lignes par petits lots, avec une pause entre chaque ligne ET
+ * entre chaque lot, pour rester sous la limite de requêtes d'Appwrite
+ * Cloud sur les endpoints de création de documents (429 Too Many Requests
+ * au-delà). Ces appels partent du navigateur (SDK client), qui est limité
+ * plus sévèrement par IP qu'un appel serveur avec clé API — d'où la
+ * prudence. Pour un fichier de quelques centaines de lignes, l'import
+ * prend plusieurs minutes ; c'est volontairement lent plutôt que fragile.
+ *
+ * NOTE : pour de gros volumes (plusieurs milliers de lignes, notamment
+ * après une fusion), la vraie solution de fond est de déplacer cette
+ * insertion vers une fonction Appwrite côté serveur (clé API, limite bien
+ * plus haute) plutôt que de continuer à pousser les délais côté client.
+ * À traiter comme un chantier séparé.
  */
 export async function insertDatasetRows(
   datasetId: string,
@@ -192,9 +201,9 @@ export async function insertDatasetRows(
     // même sur des comptes avec des quotas plus stricts.
     for (const row of batch) {
       let attempt = 0;
-      // Petite retry logic : si malgré tout on se prend un 429 isolé,
-      // on attend et on réessaie une fois plutôt que de faire échouer
-      // tout l'import pour une seule ligne.
+      // Retry avec backoff progressif : un 429 isolé ne doit pas faire
+      // échouer tout l'import — on attend de plus en plus longtemps entre
+      // les tentatives, jusqu'à MAX_RETRY_ATTEMPTS.
       while (true) {
         try {
           await databases.createDocument(DATABASE_ID, COLLECTIONS.DATASET_ROWS, ID.unique(), {
@@ -205,8 +214,8 @@ export async function insertDatasetRows(
           break;
         } catch (err: any) {
           attempt++;
-          if (err?.code === 429 && attempt <= 2) {
-            await delay(2000 * attempt);
+          if (err?.code === 429 && attempt <= MAX_RETRY_ATTEMPTS) {
+            await delay(Math.min(3000 * attempt, 15000));
             continue;
           }
           throw err;
@@ -214,6 +223,10 @@ export async function insertDatasetRows(
       }
       inserted++;
       onProgress?.(inserted, rows.length);
+
+      if (row !== batch[batch.length - 1]) {
+        await delay(DELAY_BETWEEN_ROWS_MS);
+      }
     }
 
     if (i + COLLECTION_ROW_BATCH_SIZE < rows.length) {
