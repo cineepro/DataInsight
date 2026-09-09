@@ -8,7 +8,20 @@ async function callClaudeFunction(prompt: string): Promise<string> {
   const execution = await functions.createExecution(functionId, JSON.stringify({ prompt }), false);
 
   if (execution.responseStatusCode !== 200) {
-    throw new Error("Erreur lors de la génération des directives par l'IA.");
+    // On essaie de remonter le vrai message d'erreur renvoyé par la
+    // fonction (ex: "Erreur lors de l'appel à l'IA.") plutôt qu'un
+    // message générique — ça évite d'avoir à systématiquement aller
+    // fouiller les logs Appwrite pour un diagnostic de premier niveau.
+    let detail = '';
+    try {
+      const parsed = JSON.parse(execution.responseBody) as { error?: string };
+      detail = parsed.error ?? '';
+    } catch {
+      detail = execution.responseBody?.slice(0, 200) ?? '';
+    }
+    throw new Error(
+      `Erreur lors de la génération des directives par l'IA (code ${execution.responseStatusCode})${detail ? ` : ${detail}` : ''}.`
+    );
   }
 
   const parsed = JSON.parse(execution.responseBody) as { directives: string };
