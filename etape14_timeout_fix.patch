@@ -1,0 +1,12 @@
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=package-lock.json' '--exclude=.deploy' repo_after_step13/appwrite/functions/run-claude-analysis/appwrite.json repo/appwrite/functions/run-claude-analysis/appwrite.json
+--- repo_after_step13/appwrite/functions/run-claude-analysis/appwrite.json	2026-09-09 13:36:21.815813594 +0000
++++ repo/appwrite/functions/run-claude-analysis/appwrite.json	2026-09-09 13:36:15.930873759 +0000
+@@ -5,7 +5,7 @@
+   "execute": ["team:admins", "team:analysts"],
+   "events": [],
+   "schedule": "",
+-  "timeout": 30,
++  "timeout": 90,
+   "enabled": true,
+   "logging": true,
+   "entrypoint": "dist/main.js",

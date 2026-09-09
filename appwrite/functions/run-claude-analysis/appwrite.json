@@ -5,7 +5,7 @@
   "execute": ["team:admins", "team:analysts"],
   "events": [],
   "schedule": "",
-  "timeout": 30,
+  "timeout": 90,
   "enabled": true,
   "logging": true,
   "entrypoint": "dist/main.js",
