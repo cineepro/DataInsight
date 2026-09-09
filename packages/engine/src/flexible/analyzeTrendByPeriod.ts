@@ -4,7 +4,8 @@ import type { AnalysisResult } from '../types';
 
 export interface PeriodSeriesPoint {
   period: string;
-  value: number;
+  /** null = aucune ligne pour cette période dans ce groupe (ex: formation déjà terminée), à ne jamais confondre avec une vraie valeur de 0. */
+  value: number | null;
   count: number;
 }
 
@@ -84,18 +85,30 @@ export function analyzeTrendByPeriod(
     const points: PeriodSeriesPoint[] = orderedPeriods.map((period) => {
       const bucket = buckets.get(`${group}||${period}`);
       const values = bucket?.values ?? [];
+      // Aucune ligne du tout pour ce groupe à cette période (ex: une
+      // formation de 4 semaines n'a structurellement aucune donnée en
+      // semaine 5) : ce n'est PAS une valeur de 0, c'est une absence de
+      // données — on ne veut surtout pas que ça ressorte comme une chute
+      // à -100%.
+      if (values.length === 0) return { period, value: null, count: 0 };
+
       let value: number;
       if (aggregation === 'SUM') value = values.reduce((a, b) => a + b, 0);
-      else if (aggregation === 'AVERAGE') value = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0;
+      else if (aggregation === 'AVERAGE') value = values.reduce((a, b) => a + b, 0) / values.length;
       else value = values.length;
       return { period, value: Number(value.toFixed(2)), count: values.length };
     });
 
-    // Repère la plus forte baisse d'un point au suivant.
+    // Repère la plus forte baisse d'un point au suivant — en ignorant
+    // toute transition impliquant une période sans données (value null),
+    // puisqu'aucune comparaison significative n'est possible dans ce cas.
     let ruptureIndex: number | null = null;
     let worstDelta = 0;
     for (let i = 1; i < points.length; i++) {
-      const delta = points[i].value - points[i - 1].value;
+      const prevValue = points[i - 1].value;
+      const currValue = points[i].value;
+      if (prevValue === null || currValue === null) continue;
+      const delta = currValue - prevValue;
       if (delta < worstDelta) {
         worstDelta = delta;
         ruptureIndex = i;
@@ -105,7 +118,7 @@ export function analyzeTrendByPeriod(
     let ruptureDeltaAbsolute: number | null = null;
     let ruptureDeltaPercentage: number | null = null;
     if (ruptureIndex !== null) {
-      const prevValue = points[ruptureIndex - 1].value;
+      const prevValue = points[ruptureIndex - 1].value as number; // jamais null ici, garanti par la boucle ci-dessus
       ruptureDeltaAbsolute = Number(worstDelta.toFixed(2));
       ruptureDeltaPercentage = prevValue !== 0 ? Number(((worstDelta / prevValue) * 100).toFixed(1)) : null;
     }
