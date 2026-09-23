@@ -54,25 +54,44 @@ export default function DatasetTrackingPanel({ datasetId, tenantId, columns, row
   const [activityKey, setActivityKey] = useState('');
   const [threshold, setThreshold] = useState('3');
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   useEffect(() => {
-    Promise.all([getTrackingConfig(datasetId), listTrackedIndividuals(datasetId)]).then(([c, list]) => {
-      setConfig(c);
-      setIndividuals(list);
-      if (c) {
-        setIdentifierKey(c.identifier_column_key);
-        setLabelKey(c.label_column_key ?? '');
-        setPeriodKey(c.period_column_key);
-        setActivityKey(c.activity_column_key);
-        setThreshold(String(c.inactivity_threshold));
-      }
-      setLoading(false);
-    });
+    setLoading(true);
+    setLoadError(null);
+    Promise.all([getTrackingConfig(datasetId), listTrackedIndividuals(datasetId)])
+      .then(([c, list]) => {
+        setConfig(c);
+        setIndividuals(list);
+        if (c) {
+          setIdentifierKey(c.identifier_column_key);
+          setLabelKey(c.label_column_key ?? '');
+          setPeriodKey(c.period_column_key);
+          setActivityKey(c.activity_column_key);
+          setThreshold(String(c.inactivity_threshold));
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+        setLoadError(
+          "Impossible de charger le suivi individuel — vérifie que les collections dataset_tracking_configs et dataset_tracked_individuals existent, et que les variables VITE_COLLECTION_DATASET_TRACKING_CONFIGS / VITE_COLLECTION_DATASET_TRACKED_INDIVIDUALS sont bien configurées sur Studio."
+        );
+      })
+      .finally(() => setLoading(false));
   }, [datasetId]);
 
   if (identifierColumns.length === 0 || dateColumns.length === 0 || (metricColumns.length === 0 && dimensionColumns.length === 0)) {
     return null; // pas assez de colonnes des bons rôles pour proposer un suivi
   }
   if (loading) return null;
+  if (loadError) {
+    return (
+      <Card>
+        <h3 className="mb-2 text-sm font-medium text-ink">Suivi individuel</h3>
+        <p className="text-xs text-brick">{loadError}</p>
+      </Card>
+    );
+  }
 
   async function handleActivateAndCompute() {
     const identifierCol = columns.find((c) => c.key === identifierKey);
