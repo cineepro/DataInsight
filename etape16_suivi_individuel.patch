@@ -1,0 +1,793 @@
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=.git' '--exclude=package-lock.json' '--exclude=.deploy' repo_baseline/apps/studio/src/api/datasetTracking.ts repo/apps/studio/src/api/datasetTracking.ts
+--- repo_baseline/apps/studio/src/api/datasetTracking.ts	1970-01-01 00:00:00.000000000 +0000
++++ repo/apps/studio/src/api/datasetTracking.ts	2026-09-23 12:40:21.940963057 +0000
+@@ -0,0 +1,113 @@
++//apps/studio/src/api/datasetTracking.ts
++import { Query, ID } from 'appwrite';
++import { databases } from './appwrite';
++import { DATABASE_ID, COLLECTIONS } from '@datainsight/shared';
++import type { TrackedIndividualResult, TrackingStatus } from '../engine/flexible/computeIndividualTracking';
++
++export interface DatasetTrackingConfig {
++  $id: string;
++  dataset_id: string;
++  tenant_id: string;
++  identifier_column_key: string;
++  label_column_key?: string;
++  period_column_key: string;
++  activity_column_key: string;
++  inactivity_threshold: number;
++  enabled: boolean;
++}
++
++export interface TrackedIndividual {
++  $id: string;
++  dataset_id: string;
++  tenant_id: string;
++  identifier_value: string;
++  label: string;
++  status: TrackingStatus;
++  last_active_period: string | null;
++  periods_since_active: number;
++  updated_at: string;
++}
++
++export async function getTrackingConfig(datasetId: string): Promise<DatasetTrackingConfig | null> {
++  const response = await databases.listDocuments(DATABASE_ID, COLLECTIONS.DATASET_TRACKING_CONFIGS, [
++    Query.equal('dataset_id', datasetId),
++    Query.limit(1),
++  ]);
++  return (response.documents[0] as unknown as DatasetTrackingConfig) ?? null;
++}
++
++export async function saveTrackingConfig(input: {
++  dataset_id: string;
++  tenant_id: string;
++  identifier_column_key: string;
++  label_column_key?: string;
++  period_column_key: string;
++  activity_column_key: string;
++  inactivity_threshold: number;
++}): Promise<DatasetTrackingConfig> {
++  const existing = await getTrackingConfig(input.dataset_id);
++
++  if (existing?.$id) {
++    const updated = await databases.updateDocument(DATABASE_ID, COLLECTIONS.DATASET_TRACKING_CONFIGS, existing.$id, {
++      ...input,
++      enabled: true,
++    });
++    return updated as unknown as DatasetTrackingConfig;
++  }
++
++  const created = await databases.createDocument(DATABASE_ID, COLLECTIONS.DATASET_TRACKING_CONFIGS, ID.unique(), {
++    ...input,
++    enabled: true,
++  });
++  return created as unknown as DatasetTrackingConfig;
++}
++
++export async function listTrackedIndividuals(datasetId: string): Promise<TrackedIndividual[]> {
++  const response = await databases.listDocuments(DATABASE_ID, COLLECTIONS.DATASET_TRACKED_INDIVIDUALS, [
++    Query.equal('dataset_id', datasetId),
++    Query.orderAsc('label'),
++    Query.limit(500),
++  ]);
++  return response.documents as unknown as TrackedIndividual[];
++}
++
++/**
++ * Persiste le résultat du calcul de suivi : met à jour les fiches déjà
++ * connues, crée les nouvelles. Séquentiel et espacé, comme
++ * insertDatasetRows, pour rester sous la limite de requêtes d'Appwrite
++ * côté navigateur.
++ */
++export async function saveTrackedIndividuals(
++  datasetId: string,
++  tenantId: string,
++  results: TrackedIndividualResult[],
++  onProgress?: (done: number, total: number) => void
++): Promise<void> {
++  const existing = await listTrackedIndividuals(datasetId);
++  const existingByIdentifier = new Map(existing.map((e) => [e.identifier_value, e]));
++
++  let done = 0;
++  for (const result of results) {
++    const match = existingByIdentifier.get(result.identifierValue);
++    const payload = {
++      dataset_id: datasetId,
++      tenant_id: tenantId,
++      identifier_value: result.identifierValue,
++      label: result.label,
++      status: result.status,
++      last_active_period: result.lastActivePeriod,
++      periods_since_active: result.periodsSinceActive,
++      updated_at: new Date().toISOString(),
++    };
++
++    if (match) {
++      await databases.updateDocument(DATABASE_ID, COLLECTIONS.DATASET_TRACKED_INDIVIDUALS, match.$id, payload);
++    } else {
++      await databases.createDocument(DATABASE_ID, COLLECTIONS.DATASET_TRACKED_INDIVIDUALS, ID.unique(), payload);
++    }
++
++    done++;
++    onProgress?.(done, results.length);
++    if (done < results.length) await new Promise((resolve) => setTimeout(resolve, 250));
++  }
++}
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=.git' '--exclude=package-lock.json' '--exclude=.deploy' repo_baseline/apps/studio/src/engine/flexible/computeIndividualTracking.ts repo/apps/studio/src/engine/flexible/computeIndividualTracking.ts
+--- repo_baseline/apps/studio/src/engine/flexible/computeIndividualTracking.ts	1970-01-01 00:00:00.000000000 +0000
++++ repo/apps/studio/src/engine/flexible/computeIndividualTracking.ts	2026-09-23 12:40:19.320416986 +0000
+@@ -0,0 +1,3 @@
++//apps/studio/src/engine/flexible/computeIndividualTracking.ts
++export { computeIndividualTracking } from '@datainsight/engine';
++export type { TrackedIndividualResult, TrackingStatus } from '@datainsight/engine';
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=.git' '--exclude=package-lock.json' '--exclude=.deploy' repo_baseline/apps/studio/src/features/alerts/components/AlertFeedItem.tsx repo/apps/studio/src/features/alerts/components/AlertFeedItem.tsx
+--- repo_baseline/apps/studio/src/features/alerts/components/AlertFeedItem.tsx	2026-09-23 12:45:26.353963094 +0000
++++ repo/apps/studio/src/features/alerts/components/AlertFeedItem.tsx	2026-09-23 12:43:11.202574613 +0000
+@@ -6,6 +6,7 @@
+   STOCKOUT_CRITICAL: 'Ruptures de stock répétées',
+   SATISFACTION_DROP: 'Chute de satisfaction',
+   LONG_WAIT_SPIKE: "Pic de temps d'attente",
++  DATASET_TRACKING_AT_RISK: 'Suivi individuel — personne à risque',
+ };
+ 
+ export default function AlertFeedItem({ alert }: { alert: AlertLogEntry }) {
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=.git' '--exclude=package-lock.json' '--exclude=.deploy' repo_baseline/apps/studio/src/features/datasets/components/DatasetTrackingPanel.tsx repo/apps/studio/src/features/datasets/components/DatasetTrackingPanel.tsx
+--- repo_baseline/apps/studio/src/features/datasets/components/DatasetTrackingPanel.tsx	1970-01-01 00:00:00.000000000 +0000
++++ repo/apps/studio/src/features/datasets/components/DatasetTrackingPanel.tsx	2026-09-23 12:41:29.992617797 +0000
+@@ -0,0 +1,225 @@
++//apps/studio/src/features/datasets/components/DatasetTrackingPanel.tsx
++import { useEffect, useState } from 'react';
++import type { DatasetColumnDef, DatasetRow } from '../../../engine/flexible/types';
++import { columnsWithRole } from '../../../engine/flexible/registry';
++import { computeIndividualTracking, type TrackedIndividualResult } from '../../../engine/flexible/computeIndividualTracking';
++import {
++  getTrackingConfig,
++  saveTrackingConfig,
++  listTrackedIndividuals,
++  saveTrackedIndividuals,
++  type DatasetTrackingConfig,
++  type TrackedIndividual,
++} from '../../../api/datasetTracking';
++import Card from '../../../components/ui/Card';
++import Button from '../../../components/ui/Button';
++import Select from '../../../components/ui/Select';
++import Badge from '../../../components/ui/Badge';
++import ProgressBar from '../../../components/ui/ProgressBar';
++
++interface DatasetTrackingPanelProps {
++  datasetId: string;
++  tenantId: string;
++  columns: DatasetColumnDef[];
++  rows: DatasetRow[];
++}
++
++const STATUS_TO_BADGE = {
++  ACTIVE: 'OPTIMAL',
++  AT_RISK: 'WARNING',
++} as const;
++
++/**
++ * Le pendant, pour les données importées, de ce que le suivi de fidélité
++ * fait pour les clients issus des QR codes — mais entièrement à part,
++ * jamais mélangé avec la collection `customers` ni les alertes de scan.
++ * N'apparaît que si le dataset a au moins un Identifiant, une Date et une
++ * Mesure — sans ces trois rôles, aucun suivi n'est configurable.
++ */
++export default function DatasetTrackingPanel({ datasetId, tenantId, columns, rows }: DatasetTrackingPanelProps) {
++  const identifierColumns = columnsWithRole(columns, 'IDENTIFIER');
++  const dateColumns = columnsWithRole(columns, 'DATE');
++  const metricColumns = columnsWithRole(columns, 'METRIC');
++  const dimensionColumns = columnsWithRole(columns, 'DIMENSION');
++
++  const [config, setConfig] = useState<DatasetTrackingConfig | null>(null);
++  const [individuals, setIndividuals] = useState<TrackedIndividual[]>([]);
++  const [loading, setLoading] = useState(true);
++  const [computing, setComputing] = useState(false);
++  const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
++
++  const [identifierKey, setIdentifierKey] = useState('');
++  const [labelKey, setLabelKey] = useState('');
++  const [periodKey, setPeriodKey] = useState('');
++  const [activityKey, setActivityKey] = useState('');
++  const [threshold, setThreshold] = useState('3');
++
++  useEffect(() => {
++    Promise.all([getTrackingConfig(datasetId), listTrackedIndividuals(datasetId)]).then(([c, list]) => {
++      setConfig(c);
++      setIndividuals(list);
++      if (c) {
++        setIdentifierKey(c.identifier_column_key);
++        setLabelKey(c.label_column_key ?? '');
++        setPeriodKey(c.period_column_key);
++        setActivityKey(c.activity_column_key);
++        setThreshold(String(c.inactivity_threshold));
++      }
++      setLoading(false);
++    });
++  }, [datasetId]);
++
++  if (identifierColumns.length === 0 || dateColumns.length === 0 || (metricColumns.length === 0 && dimensionColumns.length === 0)) {
++    return null; // pas assez de colonnes des bons rôles pour proposer un suivi
++  }
++  if (loading) return null;
++
++  async function handleActivateAndCompute() {
++    const identifierCol = columns.find((c) => c.key === identifierKey);
++    const periodCol = columns.find((c) => c.key === periodKey);
++    const activityCol = columns.find((c) => c.key === activityKey);
++    const labelCol = labelKey ? columns.find((c) => c.key === labelKey) : null;
++    if (!identifierCol || !periodCol || !activityCol) return;
++
++    const thresholdNumber = Math.max(1, parseInt(threshold, 10) || 3);
++
++    setComputing(true);
++    try {
++      const savedConfig = await saveTrackingConfig({
++        dataset_id: datasetId,
++        tenant_id: tenantId,
++        identifier_column_key: identifierCol.key,
++        label_column_key: labelCol?.key,
++        period_column_key: periodCol.key,
++        activity_column_key: activityCol.key,
++        inactivity_threshold: thresholdNumber,
++      });
++      setConfig(savedConfig);
++
++      const results: TrackedIndividualResult[] = computeIndividualTracking(
++        rows,
++        identifierCol,
++        periodCol,
++        activityCol,
++        thresholdNumber,
++        labelCol
++      );
++      await saveTrackedIndividuals(datasetId, tenantId, results, (current, total) => setProgress({ current, total }));
++      setIndividuals(await listTrackedIndividuals(datasetId));
++    } catch (err) {
++      console.error(err);
++      alert('Erreur lors du calcul du suivi.');
++    } finally {
++      setComputing(false);
++      setProgress(null);
++    }
++  }
++
++  const atRiskCount = individuals.filter((i) => i.status === 'AT_RISK').length;
++  const sortedIndividuals = [...individuals].sort((a, b) => {
++    if (a.status !== b.status) return a.status === 'AT_RISK' ? -1 : 1;
++    return a.label.localeCompare(b.label);
++  });
++
++  return (
++    <Card>
++      <div className="mb-3 flex items-center justify-between">
++        <h3 className="text-sm font-medium text-ink">Suivi individuel</h3>
++        {individuals.length > 0 && (
++          <span className="font-mono text-xs text-neutral-500">
++            {individuals.length} suivi(s) — {atRiskCount} à risque
++          </span>
++        )}
++      </div>
++      <p className="mb-4 text-xs text-neutral-500">
++        Suit chaque personne identifiée dans ce dataset au fil des périodes, et signale celles inactives depuis trop longtemps —
++        l'équivalent, pour un fichier importé, du suivi de fidélité client.
++      </p>
++
++      <div className="grid grid-cols-2 gap-3">
++        <Select
++          label="Qui suivre (identifiant)"
++          value={identifierKey}
++          onChange={setIdentifierKey}
++          options={identifierColumns.map((c) => ({ label: c.name, value: c.key }))}
++          placeholder="Choisir"
++        />
++        <Select
++          label="Libellé à afficher (optionnel)"
++          value={labelKey}
++          onChange={setLabelKey}
++          options={dimensionColumns.map((c) => ({ label: c.name, value: c.key }))}
++          placeholder="Aucun (affiche l'identifiant)"
++        />
++        <Select
++          label="Sur quelle période"
++          value={periodKey}
++          onChange={setPeriodKey}
++          options={(dateColumns.length > 0 ? dateColumns : dimensionColumns).map((c) => ({ label: c.name, value: c.key }))}
++          placeholder="Choisir"
++        />
++        <Select
++          label="Signal d'activité"
++          value={activityKey}
++          onChange={setActivityKey}
++          options={(metricColumns.length > 0 ? metricColumns : dimensionColumns).map((c) => ({ label: c.name, value: c.key }))}
++          placeholder="Choisir"
++        />
++      </div>
++
++      <div className="mt-3 flex items-end gap-3">
++        <div className="w-40">
++          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-neutral-500">
++            Seuil d'inactivité (périodes)
++          </label>
++          <input
++            type="number"
++            min={1}
++            value={threshold}
++            onChange={(e) => setThreshold(e.target.value)}
++            className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm text-ink focus:border-ink focus:outline-none"
++          />
++        </div>
++        <Button
++          onClick={handleActivateAndCompute}
++          loading={computing}
++          disabled={!identifierKey || !periodKey || !activityKey}
++          className="flex-1"
++        >
++          {config ? 'Recalculer le suivi' : 'Activer et calculer le suivi'}
++        </Button>
++      </div>
++
++      {progress && (
++        <div className="mt-3">
++          <ProgressBar current={progress.current} total={progress.total} label="Enregistrement du suivi" />
++        </div>
++      )}
++
++      {sortedIndividuals.length > 0 && (
++        <div className="mt-5 max-h-96 overflow-y-auto border-t border-neutral-100 pt-3">
++          <table className="w-full text-left text-xs">
++            <thead>
++              <tr className="text-neutral-400">
++                <th className="pb-2 font-mono uppercase tracking-wide">Personne</th>
++                <th className="pb-2 font-mono uppercase tracking-wide">Dernière activité</th>
++                <th className="pb-2 font-mono uppercase tracking-wide">Statut</th>
++              </tr>
++            </thead>
++            <tbody>
++              {sortedIndividuals.map((ind) => (
++                <tr key={ind.$id} className="border-t border-neutral-100">
++                  <td className="py-1.5 text-ink">{ind.label}</td>
++                  <td className="py-1.5 text-neutral-500">{ind.last_active_period ?? '—'}</td>
++                  <td className="py-1.5">
++                    <Badge status={STATUS_TO_BADGE[ind.status]} />
++                  </td>
++                </tr>
++              ))}
++            </tbody>
++          </table>
++        </div>
++      )}
++    </Card>
++  );
++}
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=.git' '--exclude=package-lock.json' '--exclude=.deploy' repo_baseline/apps/studio/src/features/datasets/pages/DatasetDetailPage.tsx repo/apps/studio/src/features/datasets/pages/DatasetDetailPage.tsx
+--- repo_baseline/apps/studio/src/features/datasets/pages/DatasetDetailPage.tsx	2026-09-23 12:45:26.354614622 +0000
++++ repo/apps/studio/src/features/datasets/pages/DatasetDetailPage.tsx	2026-09-23 12:41:40.479945641 +0000
+@@ -34,6 +34,7 @@
+ import ColumnMappingTable, { type ColumnMappingRow } from '../components/ColumnMappingTable';
+ import DatasetFunctionPicker from '../components/DatasetFunctionPicker';
+ import DatasetResultPanel from '../components/DatasetResultPanel';
++import DatasetTrackingPanel from '../components/DatasetTrackingPanel';
+ import Card from '../../../components/ui/Card';
+ import Button from '../../../components/ui/Button';
+ import ProgressBar from '../../../components/ui/ProgressBar';
+@@ -362,6 +363,8 @@
+             </Button>
+           </Card>
+ 
++          <DatasetTrackingPanel datasetId={dataset.$id} tenantId={dataset.tenant_id} columns={columns} rows={rows} />
++
+           {results && (
+             <DatasetResultPanel
+               results={results}
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=.git' '--exclude=package-lock.json' '--exclude=.deploy' repo_baseline/appwrite/functions/recompute-churn-status/src/main.ts repo/appwrite/functions/recompute-churn-status/src/main.ts
+--- repo_baseline/appwrite/functions/recompute-churn-status/src/main.ts	2026-09-23 12:45:26.357201189 +0000
++++ repo/appwrite/functions/recompute-churn-status/src/main.ts	2026-09-23 12:42:55.545577982 +0000
+@@ -1,9 +1,9 @@
+ //appwrite/functions/recompute-churn-status/src/main.ts
+-import { Client, Databases, Query } from 'node-appwrite';
+-import { detectChurnRisk, getDefaultThresholds, type Customer } from '@datainsight/engine';
++import { Client, Databases, Query, ID } from 'node-appwrite';
++import { detectChurnRisk, getDefaultThresholds, computeIndividualTracking, type Customer, type DatasetColumnDef, type DatasetRow } from '@datainsight/engine';
+ 
+ /**
+- * Tâche planifiée (quotidienne) : recalcule automatiquement deux statuts
++ * Tâche planifiée (quotidienne) : recalcule automatiquement trois statuts
+  * qui, avant cette fonction, ne changeaient jamais tout seuls :
+  *
+  * 1. Le statut de fidélité client (ACTIVE / AT_RISK / CHURNED) — n'était
+@@ -13,8 +13,12 @@
+  *    CANCELLED) — un essai qui expire sans paiement, ou une échéance
+  *    dépassée sans nouveau règlement, restait affiché tel quel
+  *    indéfiniment, sans jamais basculer en OVERDUE.
++ * 3. Le statut de suivi individuel des datasets importés (ACTIVE /
++ *    AT_RISK) — le pendant du n°1, mais pour les structures qui
++ *    n'utilisent pas les QR codes (ex: G.N.A Consult) et n'ont donc
++ *    aucun client suivi via ce mécanisme.
+  *
+- * Les deux corrections suivent le même principe : un champ de statut
++ * Les trois corrections suivent le même principe : un champ de statut
+  * affiché à l'écran doit être régulièrement recalculé contre l'horloge,
+  * pas seulement mis à jour au moment de sa création.
+  */
+@@ -30,13 +34,15 @@
+ 
+     const churnResult = await recomputeChurnStatuses(databases, databaseId, log);
+     const billingResult = await recomputeSubscriptionStatuses(databases, databaseId, log);
++    const trackingResult = await recomputeDatasetTracking(databases, databaseId, log);
+ 
+     log(
+       `Clients — ${churnResult.tenantsProcessed} structure(s), ${churnResult.customersChecked} client(s) vérifié(s), ${churnResult.customersUpdated} statut(s) mis à jour. ` +
+-      `Abonnements — ${billingResult.subscriptionsChecked} vérifié(s), ${billingResult.subscriptionsUpdated} passé(s) en retard.`
++      `Abonnements — ${billingResult.subscriptionsChecked} vérifié(s), ${billingResult.subscriptionsUpdated} passé(s) en retard. ` +
++      `Suivi datasets — ${trackingResult.datasetsProcessed} dataset(s), ${trackingResult.individualsChecked} personne(s) vérifiée(s), ${trackingResult.newAlerts} nouvelle(s) alerte(s).`
+     );
+ 
+-    return res.json({ success: true, churn: churnResult, billing: billingResult }, 200);
++    return res.json({ success: true, churn: churnResult, billing: billingResult, tracking: trackingResult }, 200);
+   } catch (err) {
+     error('Erreur recompute-churn-status: ' + (err as Error).message);
+     return res.json({ error: 'Erreur serveur.' }, 500);
+@@ -157,3 +163,120 @@
+ 
+   return { subscriptionsChecked, subscriptionsUpdated };
+ }
++
++// ---------------------------------------------------------------------
++// 3. Suivi individuel des datasets importés (hors QR code)
++// ---------------------------------------------------------------------
++async function recomputeDatasetTracking(databases: Databases, databaseId: string, log: any) {
++  const configsCollectionId = process.env.APPWRITE_COLLECTION_DATASET_TRACKING_CONFIGS!;
++  const individualsCollectionId = process.env.APPWRITE_COLLECTION_DATASET_TRACKED_INDIVIDUALS!;
++  const columnsCollectionId = process.env.APPWRITE_COLLECTION_DATASET_COLUMNS!;
++  const rowsCollectionId = process.env.APPWRITE_COLLECTION_DATASET_ROWS!;
++  const alertsCollectionId = process.env.APPWRITE_COLLECTION_ALERTS_LOG!;
++
++  const configs: any[] = [];
++  {
++    let cursor: string | undefined;
++    while (true) {
++      const queries = [Query.equal('enabled', true), Query.limit(100)];
++      if (cursor) queries.push(Query.cursorAfter(cursor));
++      const result = await databases.listDocuments(databaseId, configsCollectionId, queries);
++      configs.push(...result.documents);
++      if (result.documents.length < 100) break;
++      cursor = result.documents[result.documents.length - 1].$id;
++    }
++  }
++
++  let datasetsProcessed = 0;
++  let individualsChecked = 0;
++  let newAlerts = 0;
++
++  for (const config of configs) {
++    // Colonnes du dataset, pour reconstituer les DatasetColumnDef attendus par le moteur.
++    const columnsResult = await databases.listDocuments(databaseId, columnsCollectionId, [
++      Query.equal('dataset_id', config.dataset_id),
++      Query.limit(200),
++    ]);
++    const columns = columnsResult.documents as unknown as DatasetColumnDef[];
++    const findCol = (key: string) => columns.find((c) => c.key === key) ?? null;
++
++    const identifierCol = findCol(config.identifier_column_key);
++    const periodCol = findCol(config.period_column_key);
++    const activityCol = findCol(config.activity_column_key);
++    const labelCol = config.label_column_key ? findCol(config.label_column_key) : null;
++    if (!identifierCol || !periodCol || !activityCol) {
++      log(`Suivi ignoré pour le dataset ${config.dataset_id} : colonnes introuvables (mapping modifié depuis ?).`);
++      continue;
++    }
++
++    // Lignes du dataset (payload stocké en JSON string, à parser).
++    const rows: DatasetRow[] = [];
++    {
++      let cursor: string | undefined;
++      while (true) {
++        const queries = [Query.equal('dataset_id', config.dataset_id), Query.limit(100)];
++        if (cursor) queries.push(Query.cursorAfter(cursor));
++        const result = await databases.listDocuments(databaseId, rowsCollectionId, queries);
++        rows.push(
++          ...(result.documents as any[]).map((doc) => ({
++            $id: doc.$id,
++            dataset_id: doc.dataset_id,
++            row_index: doc.row_index,
++            payload: JSON.parse(doc.payload) as Record<string, unknown>,
++          }))
++        );
++        if (result.documents.length < 100) break;
++        cursor = result.documents[result.documents.length - 1].$id;
++      }
++    }
++    if (rows.length === 0) continue;
++    datasetsProcessed++;
++
++    const results = computeIndividualTracking(rows, identifierCol, periodCol, activityCol, config.inactivity_threshold ?? 3, labelCol);
++
++    // Fiches déjà connues pour ce dataset, pour mettre à jour plutôt que dupliquer.
++    const existingResult = await databases.listDocuments(databaseId, individualsCollectionId, [
++      Query.equal('dataset_id', config.dataset_id),
++      Query.limit(500),
++    ]);
++    const existingByIdentifier = new Map((existingResult.documents as any[]).map((d) => [d.identifier_value, d]));
++
++    for (const entry of results) {
++      individualsChecked++;
++      const existing = existingByIdentifier.get(entry.identifierValue);
++      const payload = {
++        dataset_id: config.dataset_id,
++        tenant_id: config.tenant_id,
++        identifier_value: entry.identifierValue,
++        label: entry.label,
++        status: entry.status,
++        last_active_period: entry.lastActivePeriod,
++        periods_since_active: entry.periodsSinceActive,
++        updated_at: new Date().toISOString(),
++      };
++
++      const wasAtRisk = existing?.status === 'AT_RISK';
++      const becomesAtRisk = entry.status === 'AT_RISK';
++
++      if (existing) {
++        await databases.updateDocument(databaseId, individualsCollectionId, existing.$id, payload);
++      } else {
++        await databases.createDocument(databaseId, individualsCollectionId, ID.unique(), payload);
++      }
++
++      // On n'alerte qu'à l'ENTRÉE dans l'état à risque, jamais tant qu'on y reste déjà — sinon la même personne redéclenche une alerte chaque jour.
++      if (becomesAtRisk && !wasAtRisk) {
++        await databases.createDocument(databaseId, alertsCollectionId, ID.unique(), {
++          tenant_id: config.tenant_id,
++          alert_type: 'DATASET_TRACKING_AT_RISK',
++          details: JSON.stringify({ dataset_id: config.dataset_id, identifier: entry.identifierValue, label: entry.label, periodsSinceActive: entry.periodsSinceActive }),
++          triggered_at: new Date().toISOString(),
++          notified: false,
++        });
++        newAlerts++;
++      }
++    }
++  }
++
++  return { datasetsProcessed, individualsChecked, newAlerts };
++}
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=.git' '--exclude=package-lock.json' '--exclude=.deploy' repo_baseline/packages/engine/src/flexible/computeIndividualTracking.test.ts repo/packages/engine/src/flexible/computeIndividualTracking.test.ts
+--- repo_baseline/packages/engine/src/flexible/computeIndividualTracking.test.ts	1970-01-01 00:00:00.000000000 +0000
++++ repo/packages/engine/src/flexible/computeIndividualTracking.test.ts	2026-09-23 12:39:28.987967356 +0000
+@@ -0,0 +1,92 @@
++//packages/engine/src/flexible/computeIndividualTracking.test.ts
++import { describe, it, expect } from 'vitest';
++import { computeIndividualTracking } from './computeIndividualTracking';
++import type { DatasetColumnDef, DatasetRow } from './types';
++
++function col(key: string, name: string, order: number): DatasetColumnDef {
++  return { $id: `col_${key}`, dataset_id: 'test', name, key, data_type: 'TEXT', role: 'DIMENSION', order };
++}
++function row(payload: Record<string, unknown>, i: number): DatasetRow {
++  return { $id: `r${i}`, dataset_id: 'test', row_index: i, payload };
++}
++
++const idCol = col('id_apprenant', 'ID', 0);
++const semaineCol = col('semaine', 'Semaine', 1);
++const presentCol = col('present', 'Présent', 2);
++const nomCol = col('nom', 'Nom', 3);
++
++describe('computeIndividualTracking', () => {
++  it('marque ACTIVE une personne présente récemment', () => {
++    const rows: DatasetRow[] = [
++      row({ id_apprenant: 'A1', semaine: 1, present: 1 }, 0),
++      row({ id_apprenant: 'A1', semaine: 2, present: 1 }, 1),
++      row({ id_apprenant: 'A1', semaine: 3, present: 1 }, 2),
++    ];
++    const result = computeIndividualTracking(rows, idCol, semaineCol, presentCol, 3);
++    expect(result[0].status).toBe('ACTIVE');
++    expect(result[0].periodsSinceActive).toBe(0);
++  });
++
++  it('marque AT_RISK une personne absente depuis le seuil configuré', () => {
++    const rows: DatasetRow[] = [
++      row({ id_apprenant: 'A1', semaine: 1, present: 1 }, 0),
++      row({ id_apprenant: 'A1', semaine: 2, present: 0 }, 1),
++      row({ id_apprenant: 'A1', semaine: 3, present: 0 }, 2),
++      row({ id_apprenant: 'A1', semaine: 4, present: 0 }, 3),
++    ];
++    const result = computeIndividualTracking(rows, idCol, semaineCol, presentCol, 3);
++    expect(result[0].status).toBe('AT_RISK');
++    expect(result[0].periodsSinceActive).toBe(3);
++    expect(result[0].lastActivePeriod).toBe('1');
++  });
++
++  it("ne compte JAMAIS une période sans aucune ligne comme de l'inactivité (parcours plus court, déjà terminé)", () => {
++    // A1 : parcours long (8 semaines), décroche vraiment en semaine 2.
++    // A2 : parcours court (4 semaines), actif jusqu'au bout — ne doit
++    // jamais ressortir à risque juste parce que d'autres vont plus loin.
++    const rows: DatasetRow[] = [
++      ...[1, 2, 3, 4, 5, 6, 7, 8].map((s, i) => row({ id_apprenant: 'A1', semaine: s, present: s <= 2 ? 1 : 0 }, i)),
++      ...[1, 2, 3, 4].map((s, i) => row({ id_apprenant: 'A2', semaine: s, present: 1 }, 100 + i)),
++    ];
++    const result = computeIndividualTracking(rows, idCol, semaineCol, presentCol, 3);
++    const a1 = result.find((r) => r.identifierValue === 'A1')!;
++    const a2 = result.find((r) => r.identifierValue === 'A2')!;
++
++    expect(a1.status).toBe('AT_RISK'); // vrai décrochage : 6 semaines sans activité après sa dernière présence
++    expect(a2.status).toBe('ACTIVE'); // parcours court mais assidu jusqu'au bout — pas de fausse alerte
++    expect(a2.periodsSinceActive).toBe(0);
++  });
++
++  it('reprend le libellé (ex: nom) depuis la colonne désignée, pas juste l\'identifiant brut', () => {
++    const rows: DatasetRow[] = [
++      row({ id_apprenant: 'A1', nom: 'Akpovi Jean', semaine: 1, present: 1 }, 0),
++    ];
++    const result = computeIndividualTracking(rows, idCol, semaineCol, presentCol, 3, nomCol);
++    expect(result[0].label).toBe('Akpovi Jean');
++  });
++
++  it("sans colonne de libellé désignée, utilise l'identifiant brut comme libellé", () => {
++    const rows: DatasetRow[] = [row({ id_apprenant: 'A1', semaine: 1, present: 1 }, 0)];
++    const result = computeIndividualTracking(rows, idCol, semaineCol, presentCol, 3);
++    expect(result[0].label).toBe('A1');
++  });
++
++  it('une personne jamais active est directement AT_RISK dès que le nombre de périodes atteint le seuil', () => {
++    const rows: DatasetRow[] = [1, 2, 3].map((s, i) => row({ id_apprenant: 'A1', semaine: s, present: 0 }, i));
++    const result = computeIndividualTracking(rows, idCol, semaineCol, presentCol, 3);
++    expect(result[0].status).toBe('AT_RISK');
++    expect(result[0].lastActivePeriod).toBeNull();
++  });
++
++  it('reconnaît les valeurs textuelles affirmatives (Oui/true/1) et négatives (Non/false/0) correctement', () => {
++    const rows: DatasetRow[] = [
++      row({ id_apprenant: 'A1', semaine: 1, present: 'Oui' }, 0),
++      row({ id_apprenant: 'A2', semaine: 1, present: 'true' }, 1),
++      row({ id_apprenant: 'A3', semaine: 1, present: 'Non' }, 2),
++    ];
++    const result = computeIndividualTracking(rows, idCol, semaineCol, presentCol, 3);
++    expect(result.find((r) => r.identifierValue === 'A1')!.lastActivePeriod).toBe('1');
++    expect(result.find((r) => r.identifierValue === 'A2')!.lastActivePeriod).toBe('1');
++    expect(result.find((r) => r.identifierValue === 'A3')!.lastActivePeriod).toBeNull();
++  });
++});
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=.git' '--exclude=package-lock.json' '--exclude=.deploy' repo_baseline/packages/engine/src/flexible/computeIndividualTracking.ts repo/packages/engine/src/flexible/computeIndividualTracking.ts
+--- repo_baseline/packages/engine/src/flexible/computeIndividualTracking.ts	1970-01-01 00:00:00.000000000 +0000
++++ repo/packages/engine/src/flexible/computeIndividualTracking.ts	2026-09-23 12:38:47.701563250 +0000
+@@ -0,0 +1,107 @@
++//packages/engine/src/flexible/computeIndividualTracking.ts
++import type { DatasetRow, DatasetColumnDef } from './types';
++
++export type TrackingStatus = 'ACTIVE' | 'AT_RISK';
++
++export interface TrackedIndividualResult {
++  identifierValue: string;
++  /** Valeur d'une colonne "libellé" (ex: un nom), si désignée — sinon identique à identifierValue. */
++  label: string;
++  status: TrackingStatus;
++  /** Dernière période (dans l'historique propre à cette personne) où une activité a été détectée. null si jamais active. */
++  lastActivePeriod: string | null;
++  /** Nombre de périodes consécutives sans activité, comptées uniquement sur les périodes où cette personne a une ligne — jamais sur des périodes où elle n'a structurellement aucune donnée (ex: parcours déjà terminé). */
++  periodsSinceActive: number;
++}
++
++function rawValue(row: DatasetRow, columnKey: string): string {
++  const raw = row.payload[columnKey];
++  return raw === undefined || raw === null || raw === '' ? '(vide)' : String(raw);
++}
++
++/** Trie numériquement si toutes les valeurs le permettent, sinon alphabétiquement — même logique que analyzeTrendByPeriod, pour un tri de périodes cohérent partout dans le moteur. */
++function sortPeriods(periods: string[]): string[] {
++  const allNumeric = periods.every((p) => !Number.isNaN(Number(p)));
++  if (allNumeric) return [...periods].sort((a, b) => Number(a) - Number(b));
++  return [...periods].sort((a, b) => a.localeCompare(b));
++}
++
++/** Une valeur d'activité est considérée "positive" si c'est un nombre > 0, un booléen true, ou une chaîne usuelle affirmative. */
++function isActiveValue(value: unknown): boolean {
++  if (typeof value === 'boolean') return value;
++  if (typeof value === 'number') return value > 0;
++  if (typeof value === 'string') {
++    const normalized = value.trim().toLowerCase();
++    if (['true', 'oui', 'yes', '1'].includes(normalized)) return true;
++    const asNumber = Number(normalized.replace(',', '.'));
++    if (!Number.isNaN(asNumber)) return asNumber > 0;
++  }
++  return false;
++}
++
++/**
++ * Calcule, pour chaque personne identifiée par identifierColumn, son statut
++ * de suivi (active / à risque) à partir de son historique propre de
++ * présence sur periodColumn — le pendant, pour les données importées, de
++ * ce que detectChurnRisk fait pour les clients issus des QR codes.
++ *
++ * Ne compte jamais une période comme "sans activité" si la personne n'a
++ * structurellement aucune ligne pour cette période (parcours plus court
++ * que d'autres, terminé plus tôt) — même précaution que le correctif
++ * apporté à analyzeTrendByPeriod, appliquée ici au niveau de l'individu
++ * plutôt qu'au niveau du groupe.
++ */
++export function computeIndividualTracking(
++  rows: DatasetRow[],
++  identifierColumn: DatasetColumnDef,
++  periodColumn: DatasetColumnDef,
++  activityColumn: DatasetColumnDef,
++  inactivityThreshold: number,
++  labelColumn?: DatasetColumnDef | null
++): TrackedIndividualResult[] {
++  const byIndividual = new Map<string, { period: string; active: boolean }[]>();
++  const labels = new Map<string, string>();
++
++  for (const row of rows) {
++    const id = rawValue(row, identifierColumn.key);
++    const period = rawValue(row, periodColumn.key);
++    const active = isActiveValue(row.payload[activityColumn.key]);
++
++    if (!byIndividual.has(id)) byIndividual.set(id, []);
++    byIndividual.get(id)!.push({ period, active });
++
++    if (labelColumn && !labels.has(id)) {
++      labels.set(id, rawValue(row, labelColumn.key));
++    }
++  }
++
++  const results: TrackedIndividualResult[] = [];
++
++  for (const [id, entries] of byIndividual) {
++    const orderedPeriods = sortPeriods([...new Set(entries.map((e) => e.period))]);
++    const activeByPeriod = new Map(entries.map((e) => [e.period, e.active]));
++
++    let lastActivePeriod: string | null = null;
++    for (const period of orderedPeriods) {
++      if (activeByPeriod.get(period)) lastActivePeriod = period;
++    }
++
++    let periodsSinceActive: number;
++    if (lastActivePeriod === null) {
++      periodsSinceActive = orderedPeriods.length;
++    } else {
++      const lastActiveIndex = orderedPeriods.indexOf(lastActivePeriod);
++      periodsSinceActive = orderedPeriods.length - 1 - lastActiveIndex;
++    }
++
++    results.push({
++      identifierValue: id,
++      label: labels.get(id) ?? id,
++      status: periodsSinceActive >= inactivityThreshold ? 'AT_RISK' : 'ACTIVE',
++      lastActivePeriod,
++      periodsSinceActive,
++    });
++  }
++
++  return results.sort((a, b) => a.label.localeCompare(b.label));
++}
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=.git' '--exclude=package-lock.json' '--exclude=.deploy' repo_baseline/packages/engine/src/index.ts repo/packages/engine/src/index.ts
+--- repo_baseline/packages/engine/src/index.ts	2026-09-23 12:45:26.359230036 +0000
++++ repo/packages/engine/src/index.ts	2026-09-23 12:38:50.314508437 +0000
+@@ -59,6 +59,7 @@
+ export { aggregateByDimensions, type MultiDimensionGroup } from './flexible/aggregateByDimensions';
+ export { analyzeTrendByPeriod, type PeriodSeries, type PeriodSeriesPoint } from './flexible/analyzeTrendByPeriod';
+ export { pivotTable, type PivotTableResult } from './flexible/pivotTable';
++export { computeIndividualTracking, type TrackedIndividualResult, type TrackingStatus } from './flexible/computeIndividualTracking';
+ export { topNByDimension } from './flexible/topNByDimension';
+ //export { crossCorrelateColumns } from './flexible/crossCorrelateColumns';
+ //export { detectAnomaliesInColumn } from './flexible/detectAnomaliesInColumn';
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=.git' '--exclude=package-lock.json' '--exclude=.deploy' repo_baseline/packages/shared/src/appwrite/config.ts repo/packages/shared/src/appwrite/config.ts
+--- repo_baseline/packages/shared/src/appwrite/config.ts	2026-09-23 12:45:26.360150694 +0000
++++ repo/packages/shared/src/appwrite/config.ts	2026-09-23 12:39:47.511777798 +0000
+@@ -27,6 +27,8 @@
+   OFFICIAL_SOURCES: import.meta.env.VITE_COLLECTION_OFFICIAL_SOURCES,
+    API_KEYS: import.meta.env.VITE_COLLECTION_API_KEYS,
+   API_USAGE_LOGS: import.meta.env.VITE_COLLECTION_API_USAGE_LOGS,
++  DATASET_TRACKING_CONFIGS: import.meta.env.VITE_COLLECTION_DATASET_TRACKING_CONFIGS,
++  DATASET_TRACKED_INDIVIDUALS: import.meta.env.VITE_COLLECTION_DATASET_TRACKED_INDIVIDUALS,
+ } as const;
+ 
+ // TEAMS : noms lisibles, utilisés uniquement pour COMPARER l'appartenance
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=.git' '--exclude=package-lock.json' '--exclude=.deploy' repo_baseline/packages/shared/src/types/alert.ts repo/packages/shared/src/types/alert.ts
+--- repo_baseline/packages/shared/src/types/alert.ts	2026-09-23 12:45:26.360150694 +0000
++++ repo/packages/shared/src/types/alert.ts	2026-09-23 12:39:43.919572414 +0000
+@@ -1,5 +1,5 @@
+ //packages/shared/src/types/alert.ts
+-export type AlertType = 'STOCKOUT_CRITICAL' | 'SATISFACTION_DROP' | 'LONG_WAIT_SPIKE';
++export type AlertType = 'STOCKOUT_CRITICAL' | 'SATISFACTION_DROP' | 'LONG_WAIT_SPIKE' | 'DATASET_TRACKING_AT_RISK';
+ 
+ export interface AlertLogEntry {
+   $id: string;

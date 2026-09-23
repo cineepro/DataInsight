@@ -1,5 +1,5 @@
 //packages/shared/src/types/alert.ts
-export type AlertType = 'STOCKOUT_CRITICAL' | 'SATISFACTION_DROP' | 'LONG_WAIT_SPIKE';
+export type AlertType = 'STOCKOUT_CRITICAL' | 'SATISFACTION_DROP' | 'LONG_WAIT_SPIKE' | 'DATASET_TRACKING_AT_RISK';
 
 export interface AlertLogEntry {
   $id: string;

@@ -6,6 +6,7 @@ const ALERT_LABELS: Record<string, string> = {
   STOCKOUT_CRITICAL: 'Ruptures de stock répétées',
   SATISFACTION_DROP: 'Chute de satisfaction',
   LONG_WAIT_SPIKE: "Pic de temps d'attente",
+  DATASET_TRACKING_AT_RISK: 'Suivi individuel — personne à risque',
 };
 
 export default function AlertFeedItem({ alert }: { alert: AlertLogEntry }) {

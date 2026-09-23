@@ -34,6 +34,7 @@ import DatasetPreviewTable from '../components/DatasetPreviewTable';
 import ColumnMappingTable, { type ColumnMappingRow } from '../components/ColumnMappingTable';
 import DatasetFunctionPicker from '../components/DatasetFunctionPicker';
 import DatasetResultPanel from '../components/DatasetResultPanel';
+import DatasetTrackingPanel from '../components/DatasetTrackingPanel';
 import Card from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
 import ProgressBar from '../../../components/ui/ProgressBar';
@@ -361,6 +362,8 @@ async function handleRunAnalysis() {
               Lancer l'analyse
             </Button>
           </Card>
+
+          <DatasetTrackingPanel datasetId={dataset.$id} tenantId={dataset.tenant_id} columns={columns} rows={rows} />
 
           {results && (
             <DatasetResultPanel
